@@ -46,8 +46,8 @@ public class ResilientAiAllocatorDecorator implements AiAllocatorPort {
 
     @PreDestroy
     void shutdownExecutor() {
-<span class="nc" id="L49">        executor.shutdown();</span>
-<span class="nc" id="L50">    }</span>
+<span class="fc" id="L49">        executor.shutdown();</span>
+<span class="fc" id="L50">    }</span>
 
     @Override
     public AiSuggestion suggest(String naturalLanguageExpense) {

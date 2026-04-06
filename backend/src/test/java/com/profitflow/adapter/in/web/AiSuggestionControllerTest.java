@@ -21,6 +21,7 @@ import java.util.Map;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -51,6 +52,7 @@ class AiSuggestionControllerTest {
                 .thenReturn(new AiSuggestion("Customer Support", "Tickets resolved"));
 
         mockMvc.perform(post("/api/v1/ai/suggest")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("text", "Zendesk subscription"))))
@@ -62,6 +64,7 @@ class AiSuggestionControllerTest {
     @Test
     void suggestWithBlankTextReturns400() throws Exception {
         mockMvc.perform(post("/api/v1/ai/suggest")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("text", ""))))
@@ -72,6 +75,7 @@ class AiSuggestionControllerTest {
     void suggestWithoutAuthReturns401() throws Exception {
         // No JWT token → 401 with WWW-Authenticate: Bearer
         mockMvc.perform(post("/api/v1/ai/suggest")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("text", "test"))))
                 .andExpect(status().isUnauthorized());

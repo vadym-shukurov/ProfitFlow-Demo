@@ -1,6 +1,7 @@
 package com.profitflow.application.service;
 
 import com.profitflow.application.exception.InvalidInputException;
+import com.profitflow.application.port.in.ResourceCostUseCase;
 import com.profitflow.application.port.out.ResourceCostRepositoryPort;
 import com.profitflow.domain.Money;
 import com.profitflow.domain.ResourceCost;
@@ -11,14 +12,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,13 +43,11 @@ class ResourceCostServiceTest {
     private ResourceCostService service;
 
     @BeforeEach
-    void setUp() throws Exception {
-        service = new ResourceCostService(repository, metrics);
-        // @Lazy self-proxy is not built in unit tests — point self at same instance
-        // so importCostsFromCsv → createCost exercises real logic + metrics.
-        Field selfField = ResourceCostService.class.getDeclaredField("self");
-        selfField.setAccessible(true);
-        selfField.set(service, service);
+    void setUp() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<ResourceCostUseCase> selfProvider = mock(ObjectProvider.class);
+        service = new ResourceCostService(repository, metrics, selfProvider);
+        lenient().when(selfProvider.getObject()).thenReturn(service);
     }
 
     // -------------------------------------------------------------------------

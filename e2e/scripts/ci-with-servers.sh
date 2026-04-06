@@ -57,10 +57,20 @@ done
 
 # The health endpoint can go UP before demo users are committed (seed runs async after startup).
 # E2E depends on demo credentials; wait until login succeeds to avoid flaky 401s.
+# CSRF: obtain XSRF-TOKEN cookie (Spring CookieCsrfTokenRepository) then send X-XSRF-TOKEN on POST.
+API_COOKIE_JAR="$TMP/pf-api-cookies.txt"
+rm -f "$API_COOKIE_JAR"
+curl -sf -c "$API_COOKIE_JAR" "${API_BASE}/actuator/health" >/dev/null || true
+csrf_token_from_jar() {
+  awk '$6 == "XSRF-TOKEN" { print $7; exit }' "$API_COOKIE_JAR"
+}
 echo "Waiting for demo credentials to be ready…"
 for _ in $(seq 1 60); do
-  if curl -sf -X POST "${API_BASE}/api/v1/auth/login" \
+  CSRF_TOKEN="$(csrf_token_from_jar)"
+  if [[ -n "${CSRF_TOKEN}" ]] && curl -sf -X POST "${API_BASE}/api/v1/auth/login" \
+      -b "$API_COOKIE_JAR" -c "$API_COOKIE_JAR" \
       -H "Content-Type: application/json" \
+      -H "X-XSRF-TOKEN: ${CSRF_TOKEN}" \
       -d '{"username":"admin","password":"Admin1234!"}' >/dev/null; then
     break
   fi

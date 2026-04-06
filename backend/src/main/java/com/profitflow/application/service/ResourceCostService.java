@@ -11,10 +11,9 @@ import com.profitflow.application.audit.AuditedOperation;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,32 +46,29 @@ import java.util.UUID;
 public class ResourceCostService implements ResourceCostUseCase {
 
     private final ResourceCostRepositoryPort resourceCosts;
-    private final BusinessMetricsPort        metrics;
-
+    private final BusinessMetricsPort metrics;
     /**
-     * Self-reference injected lazily to enable Spring AOP proxy-through-self calls
-     * from {@link #importCostsFromCsv} to {@link #createCost}.
+     * Lazily resolves this bean as {@link ResourceCostUseCase} so {@link #importCostsFromCsv}
+     * can call {@link #createCost} through the Spring proxy (AOP on {@code @AuditedOperation}
+     * and {@code @CacheEvict}). {@link ObjectProvider} avoids field injection, breaks the
+     * construction cycle, and defers lookup until {@code getObject()} runs.
      *
-     * <p>Without this, calling {@code createCost(...)} directly inside
-     * {@code importCostsFromCsv} bypasses the Spring proxy, meaning the
-     * {@code @AuditedOperation} and {@code @CacheEvict} on {@code createCost}
-     * would not fire for each imported row. By routing the call through the
-     * injected proxy, all per-row annotations execute normally.
+     * <p>Direct {@code createCost(...)} calls from the same class would bypass the proxy.
      *
      * <p>The outer {@code importCostsFromCsv} already carries its own
      * {@code @AuditedOperation(critical=true)} and {@code @CacheEvict},
      * so the per-row auditing is an additional fine-grained trail suitable for
      * compliance requirements.
      */
-    @Autowired
-    @Lazy
-    private ResourceCostService self;
+    private final ObjectProvider<ResourceCostUseCase> self;
 
     public ResourceCostService(
             ResourceCostRepositoryPort resourceCosts,
-            BusinessMetricsPort metrics) {
+            BusinessMetricsPort metrics,
+            ObjectProvider<ResourceCostUseCase> self) {
         this.resourceCosts = resourceCosts;
         this.metrics       = metrics;
+        this.self          = self;
     }
 
     /**
@@ -183,7 +179,7 @@ public class ResourceCostService implements ResourceCostUseCase {
                     // Route through self-proxy so @AuditedOperation and @CacheEvict on
                     // createCost fire for each row (Spring AOP does not intercept
                     // direct same-class calls).
-                    created.add(self.createCost(label, amount, currency));
+                    created.add(self.getObject().createCost(label, amount, currency));
                 }
             }
             metrics.recordCostImportSuccess();

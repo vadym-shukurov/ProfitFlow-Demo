@@ -15,6 +15,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,6 +67,7 @@ class ProfitflowPostgresIntegrationIT {
     @Test
     void analystCannotPostAllocationRun() throws Exception {
         var login = mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"analyst\",\"password\":\"Analyst123!\"}"))
                 .andExpect(status().isOk())
@@ -74,6 +76,7 @@ class ProfitflowPostgresIntegrationIT {
         String token = JsonPath.read(login.getResponse().getContentAsString(), "$.accessToken");
 
         mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }
@@ -81,6 +84,7 @@ class ProfitflowPostgresIntegrationIT {
     @Test
     void managerCanRunAllocationAgainstPostgres() throws Exception {
         var login = mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"manager\",\"password\":\"Manager123!\"}"))
                 .andExpect(status().isOk())
@@ -89,6 +93,7 @@ class ProfitflowPostgresIntegrationIT {
         String token = JsonPath.read(login.getResponse().getContentAsString(), "$.accessToken");
 
         mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }

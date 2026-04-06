@@ -129,6 +129,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/infrastructure/DefaultBusinessMetrics.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/infrastructure/DefaultDomainEventDispatchAdapter.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/infrastructure/DemoDataSeeder.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/infrastructure/DemoSeedProperties.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/infrastructure/PermissiveAllocationExecutionPolicy.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AppUserDetailsService.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AuditAspect.java

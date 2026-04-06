@@ -8,6 +8,35 @@ import { e2eAdminPassword, e2eAdminUser, e2eAnalystPassword } from '../fixtures/
  */
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:8080';
 
+/** Spring {@code CookieCsrfTokenRepository} — cookie + matching header on mutating requests. */
+const cookieJar = new Map<string, string>();
+
+function mergeSetCookies(res: Response): void {
+  const raw = res.headers as unknown as { getSetCookie?: () => string[] };
+  const list = typeof raw.getSetCookie === 'function' ? raw.getSetCookie() : [];
+  for (const c of list) {
+    const pair = c.split(';')[0]?.trim() ?? '';
+    const eq = pair.indexOf('=');
+    if (eq > 0) {
+      cookieJar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
+  }
+}
+
+function cookieHeader(): Record<string, string> {
+  if (cookieJar.size === 0) {
+    return {};
+  }
+  return {
+    Cookie: [...cookieJar.entries()].map(([k, v]) => `${k}=${v}`).join('; '),
+  };
+}
+
+function csrfHeaders(): Record<string, string> {
+  const token = cookieJar.get('XSRF-TOKEN');
+  return token ? { 'X-XSRF-TOKEN': token } : {};
+}
+
 function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
@@ -16,7 +45,11 @@ async function apiGet(
     path: string,
     headers?: Record<string, string>,
 ): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, { headers: { ...headers } });
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { ...cookieHeader(), ...headers },
+  });
+  mergeSetCookies(res);
+  return res;
 }
 
 async function apiPost(
@@ -24,13 +57,21 @@ async function apiPost(
     body?: unknown,
     headers?: Record<string, string>,
 ): Promise<Response> {
-  const h: Record<string, string> = { ...headers };
-  const init: RequestInit = { method: 'POST', headers: h };
+  const h: Record<string, string> = {
+    ...cookieHeader(),
+    ...csrfHeaders(),
+    ...headers,
+  };
   if (body !== undefined) {
     h['Content-Type'] = 'application/json';
+  }
+  const init: RequestInit = { method: 'POST', headers: h };
+  if (body !== undefined) {
     init.body = JSON.stringify(body);
   }
-  return fetch(`${API_BASE}${path}`, init);
+  const res = await fetch(`${API_BASE}${path}`, init);
+  mergeSetCookies(res);
+  return res;
 }
 
 test.describe.serial('API — critical operations', () => {

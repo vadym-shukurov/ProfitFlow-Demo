@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -52,6 +53,7 @@ class AllocationRunControllerTest {
         when(allocationRunUseCase.runAllocation()).thenReturn(result);
 
         mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER"))))
                 .andExpect(status().isOk())
                 .andExpect(header().string(ApiVersionResponseHeaderFilter.HEADER_NAME,
@@ -65,6 +67,7 @@ class AllocationRunControllerTest {
                 .thenThrow(new AllocationDomainException("Activity 'act-1' has no product rules"));
 
         mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnprocessableEntity())
@@ -74,6 +77,7 @@ class AllocationRunControllerTest {
     @Test
     void runByAnalystReturns403() throws Exception {
         mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST"))))
                 .andExpect(status().isForbidden());
     }
@@ -81,7 +85,8 @@ class AllocationRunControllerTest {
     @Test
     void runWithoutAuthReturns401() throws Exception {
         // No JWT token → 401 with WWW-Authenticate: Bearer
-        mockMvc.perform(post("/api/v1/allocations/run"))
+        mockMvc.perform(post("/api/v1/allocations/run")
+                        .with(csrf()))
                 .andExpect(status().isUnauthorized());
     }
 }

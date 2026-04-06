@@ -21,14 +21,10 @@ import java.util.UUID;
  * In production, users must be provisioned via the future User Management API
  * (see roadmap) or directly via a database migration with hashed passwords.
  *
- * <h2>Demo credentials</h2>
- * <pre>
- * admin   / Admin1234!     → ROLE_ADMIN
- * manager / Manager123!    → ROLE_FINANCE_MANAGER
- * analyst / Analyst123!    → ROLE_ANALYST
- * </pre>
+ * <p>Passwords come from {@link DemoSeedProperties} ({@code profitflow.demo-seed.*} /
+ * {@code PROFITFLOW_DEMO_*_PASSWORD} env vars). If any value is missing, seeding is skipped.
  *
- * <p><strong>Change these passwords immediately in any shared environment.</strong>
+ * <p><strong>Override defaults before sharing any environment.</strong>
  */
 @Component
 @Profile("!prod")
@@ -38,10 +34,15 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     private final AppUserEntityRepository users;
     private final PasswordEncoder encoder;
+    private final DemoSeedProperties demoSeed;
 
-    public DemoDataSeeder(AppUserEntityRepository users, PasswordEncoder encoder) {
+    public DemoDataSeeder(
+            AppUserEntityRepository users,
+            PasswordEncoder encoder,
+            DemoSeedProperties demoSeed) {
         this.users = users;
         this.encoder = encoder;
+        this.demoSeed = demoSeed;
     }
 
     @Override
@@ -49,18 +50,24 @@ public class DemoDataSeeder implements ApplicationRunner {
         if (users.count() > 0) {
             return; // already seeded
         }
+        if (!demoSeed.isComplete()) {
+            log.warn(
+                    "Skipping demo user seed: set profitflow.demo-seed.admin-password, "
+                            + "manager-password, and analyst-password (or PROFITFLOW_DEMO_* env vars).");
+            return;
+        }
         log.info("Seeding demo users...");
 
         List<AppUserEntity> seeds = List.of(
                 new AppUserEntity(UUID.randomUUID(), "admin",
                         "admin@profitflow.internal",
-                        encoder.encode("Admin1234!"), UserRole.ADMIN),
+                        encoder.encode(demoSeed.getAdminPassword()), UserRole.ADMIN),
                 new AppUserEntity(UUID.randomUUID(), "manager",
                         "manager@profitflow.internal",
-                        encoder.encode("Manager123!"), UserRole.FINANCE_MANAGER),
+                        encoder.encode(demoSeed.getManagerPassword()), UserRole.FINANCE_MANAGER),
                 new AppUserEntity(UUID.randomUUID(), "analyst",
                         "analyst@profitflow.internal",
-                        encoder.encode("Analyst123!"), UserRole.ANALYST)
+                        encoder.encode(demoSeed.getAnalystPassword()), UserRole.ANALYST)
         );
 
         users.saveAll(seeds);

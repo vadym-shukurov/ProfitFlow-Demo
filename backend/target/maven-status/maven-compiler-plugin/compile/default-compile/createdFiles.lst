@@ -13,6 +13,7 @@ com/profitflow/adapter/out/persistence/ProductPersistenceAdapter.class
 com/profitflow/domain/security/package-info.class
 com/profitflow/security/RefreshTokenService$RotationResult.class
 com/profitflow/application/port/out/ProductRepositoryPort.class
+com/profitflow/infrastructure/DemoSeedProperties.class
 com/profitflow/security/ratelimit/RedisRateLimiterBackend.class
 com/profitflow/adapter/in/web/dto/CreateResourceCostRequest.class
 com/profitflow/security/TokenRevocationService.class

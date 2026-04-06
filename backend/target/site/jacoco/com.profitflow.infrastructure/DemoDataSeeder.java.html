@@ -21,50 +21,57 @@ import java.util.UUID;
  * In production, users must be provisioned via the future User Management API
  * (see roadmap) or directly via a database migration with hashed passwords.
  *
- * &lt;h2&gt;Demo credentials&lt;/h2&gt;
- * &lt;pre&gt;
- * admin   / Admin1234!     → ROLE_ADMIN
- * manager / Manager123!    → ROLE_FINANCE_MANAGER
- * analyst / Analyst123!    → ROLE_ANALYST
- * &lt;/pre&gt;
+ * &lt;p&gt;Passwords come from {@link DemoSeedProperties} ({@code profitflow.demo-seed.*} /
+ * {@code PROFITFLOW_DEMO_*_PASSWORD} env vars). If any value is missing, seeding is skipped.
  *
- * &lt;p&gt;&lt;strong&gt;Change these passwords immediately in any shared environment.&lt;/strong&gt;
+ * &lt;p&gt;&lt;strong&gt;Override defaults before sharing any environment.&lt;/strong&gt;
  */
 @Component
 @Profile(&quot;!prod&quot;)
 public class DemoDataSeeder implements ApplicationRunner {
 
-<span class="fc" id="L37">    private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);</span>
+<span class="fc" id="L33">    private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);</span>
 
     private final AppUserEntityRepository users;
     private final PasswordEncoder encoder;
+    private final DemoSeedProperties demoSeed;
 
-<span class="fc" id="L42">    public DemoDataSeeder(AppUserEntityRepository users, PasswordEncoder encoder) {</span>
+    public DemoDataSeeder(
+            AppUserEntityRepository users,
+            PasswordEncoder encoder,
+<span class="fc" id="L42">            DemoSeedProperties demoSeed) {</span>
 <span class="fc" id="L43">        this.users = users;</span>
 <span class="fc" id="L44">        this.encoder = encoder;</span>
-<span class="fc" id="L45">    }</span>
+<span class="fc" id="L45">        this.demoSeed = demoSeed;</span>
+<span class="fc" id="L46">    }</span>
 
     @Override
     public void run(ApplicationArguments args) {
-<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (users.count() &gt; 0) {</span>
-<span class="nc" id="L50">            return; // already seeded</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">        if (users.count() &gt; 0) {</span>
+<span class="nc" id="L51">            return; // already seeded</span>
         }
-<span class="fc" id="L52">        log.info(&quot;Seeding demo users...&quot;);</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        if (!demoSeed.isComplete()) {</span>
+<span class="nc" id="L54">            log.warn(</span>
+                    &quot;Skipping demo user seed: set profitflow.demo-seed.admin-password, &quot;
+                            + &quot;manager-password, and analyst-password (or PROFITFLOW_DEMO_* env vars).&quot;);
+<span class="nc" id="L57">            return;</span>
+        }
+<span class="fc" id="L59">        log.info(&quot;Seeding demo users...&quot;);</span>
 
-<span class="fc" id="L54">        List&lt;AppUserEntity&gt; seeds = List.of(</span>
-<span class="fc" id="L55">                new AppUserEntity(UUID.randomUUID(), &quot;admin&quot;,</span>
+<span class="fc" id="L61">        List&lt;AppUserEntity&gt; seeds = List.of(</span>
+<span class="fc" id="L62">                new AppUserEntity(UUID.randomUUID(), &quot;admin&quot;,</span>
                         &quot;admin@profitflow.internal&quot;,
-<span class="fc" id="L57">                        encoder.encode(&quot;Admin1234!&quot;), UserRole.ADMIN),</span>
-<span class="fc" id="L58">                new AppUserEntity(UUID.randomUUID(), &quot;manager&quot;,</span>
+<span class="fc" id="L64">                        encoder.encode(demoSeed.getAdminPassword()), UserRole.ADMIN),</span>
+<span class="fc" id="L65">                new AppUserEntity(UUID.randomUUID(), &quot;manager&quot;,</span>
                         &quot;manager@profitflow.internal&quot;,
-<span class="fc" id="L60">                        encoder.encode(&quot;Manager123!&quot;), UserRole.FINANCE_MANAGER),</span>
-<span class="fc" id="L61">                new AppUserEntity(UUID.randomUUID(), &quot;analyst&quot;,</span>
+<span class="fc" id="L67">                        encoder.encode(demoSeed.getManagerPassword()), UserRole.FINANCE_MANAGER),</span>
+<span class="fc" id="L68">                new AppUserEntity(UUID.randomUUID(), &quot;analyst&quot;,</span>
                         &quot;analyst@profitflow.internal&quot;,
-<span class="fc" id="L63">                        encoder.encode(&quot;Analyst123!&quot;), UserRole.ANALYST)</span>
+<span class="fc" id="L70">                        encoder.encode(demoSeed.getAnalystPassword()), UserRole.ANALYST)</span>
         );
 
-<span class="fc" id="L66">        users.saveAll(seeds);</span>
-<span class="fc" id="L67">        log.warn(&quot;Demo users created — change passwords before sharing this environment!&quot;);</span>
-<span class="fc" id="L68">    }</span>
+<span class="fc" id="L73">        users.saveAll(seeds);</span>
+<span class="fc" id="L74">        log.warn(&quot;Demo users created — change passwords before sharing this environment!&quot;);</span>
+<span class="fc" id="L75">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

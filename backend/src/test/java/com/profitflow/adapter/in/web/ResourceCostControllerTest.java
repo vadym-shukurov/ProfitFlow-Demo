@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -108,6 +109,7 @@ class ResourceCostControllerTest {
                 "Office Rent", new BigDecimal("3000.00"), "USD");
 
         mockMvc.perform(post("/api/v1/resource-costs")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
@@ -122,6 +124,7 @@ class ResourceCostControllerTest {
                 "Office Rent", new BigDecimal("3000.00"), "USD");
 
         mockMvc.perform(post("/api/v1/resource-costs")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
@@ -134,6 +137,7 @@ class ResourceCostControllerTest {
                 "", new BigDecimal("100"), "USD");
 
         mockMvc.perform(post("/api/v1/resource-costs")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
@@ -146,6 +150,7 @@ class ResourceCostControllerTest {
                 "Valid Label", new BigDecimal("-10"), "USD");
 
         mockMvc.perform(post("/api/v1/resource-costs")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
@@ -160,6 +165,7 @@ class ResourceCostControllerTest {
                 new ResourceCost("i1", "Zendesk", Money.usd(new BigDecimal("5000.00")))));
 
         mockMvc.perform(post("/api/v1/resource-costs/import")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.TEXT_PLAIN)
                         .content("Zendesk,5000"))
@@ -174,6 +180,7 @@ class ResourceCostControllerTest {
         when(resourceCostUseCase.importCostsFromCsv(csv)).thenReturn(List.of());
 
         mockMvc.perform(post("/api/v1/resource-costs/import")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.TEXT_PLAIN)
                         .content(csv))

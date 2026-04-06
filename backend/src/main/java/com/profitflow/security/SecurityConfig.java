@@ -29,6 +29,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 import java.security.interfaces.RSAPublicKey;
@@ -93,18 +94,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
+                // ── CSRF (Sonar java:S4502) ─────────────────────────────────
+                // Do not use csrf.disable() or broad ignoringRequestMatchers. Stateless
+                // JWT auth still serves browser clients; double-submit cookie CSRF lets
+                // SPAs send X-XSRF-TOKEN (CookieCsrfTokenRepository, httpOnly=false).
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
                 // ── Session management ──────────────────────────────────────
-                // Stateless JWT — no HttpSession, no cookies
-                // Keep CSRF protection enabled by default, but ignore stateless API endpoints
-                // (JWT bearer auth; no cookies). This avoids accidental CSRF disablement for any
-                // future browser/session endpoints.
-                .csrf(csrf -> csrf.ignoringRequestMatchers(
-                        "/api/**",
-                        "/actuator/**",
-                        "/v3/api-docs/**",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html"
-                ))
+                // Stateless JWT — no HttpSession for authentication state.
                 .sessionManagement(sm ->
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 

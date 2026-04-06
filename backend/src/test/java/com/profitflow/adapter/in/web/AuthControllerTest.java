@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -104,6 +105,7 @@ class AuthControllerTest {
         doNothing().when(userLockout).recordSuccessfulLogin(anyString());
 
         mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("admin", "secret123")))
                 .andExpect(status().isOk())
@@ -121,6 +123,7 @@ class AuthControllerTest {
         doNothing().when(userLockout).recordFailedLogin(anyString());
 
         mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("admin", "wrongpass")))
                 .andExpect(status().isUnauthorized());
@@ -135,6 +138,7 @@ class AuthControllerTest {
                 .thenThrow(new LockedException("locked"));
 
         mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("admin", "secret123")))
                 .andExpect(status().isUnauthorized());
@@ -145,6 +149,7 @@ class AuthControllerTest {
     @Test
     void missingUsernameReturns400() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("password", "secret"))))
                 .andExpect(status().isBadRequest());
@@ -153,6 +158,7 @@ class AuthControllerTest {
     @Test
     void blankPasswordReturns400() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("admin", "")))
                 .andExpect(status().isBadRequest());
@@ -179,6 +185,7 @@ class AuthControllerTest {
                         "hashed", com.profitflow.domain.security.UserRole.ADMIN)));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 Map.of("refreshToken", oldRawToken))))
@@ -192,6 +199,7 @@ class AuthControllerTest {
         when(refreshTokenRepository.findActiveByHash(anyString())).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 Map.of("refreshToken", "expired-or-unknown"))))
@@ -203,6 +211,7 @@ class AuthControllerTest {
         when(refreshTokenRepository.revokeByHash(anyString(), eq("LOGOUT"))).thenReturn(1);
 
         mockMvc.perform(post("/api/v1/auth/logout")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(

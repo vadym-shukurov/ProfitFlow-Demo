@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -74,6 +75,7 @@ class AllocationRuleControllerTest {
                 Map.of("resourceId", "r1", "activityId", "a1", "driverWeight", 1.0));
 
         mockMvc.perform(put("/api/v1/rules/resource-to-activity")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
@@ -85,6 +87,7 @@ class AllocationRuleControllerTest {
     @Test
     void replaceResourceToActivityWithoutAuthReturns401() throws Exception {
         mockMvc.perform(put("/api/v1/rules/resource-to-activity")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[]"))
                 .andExpect(status().isUnauthorized());
@@ -112,6 +115,7 @@ class AllocationRuleControllerTest {
                 Map.of("activityId", "a1", "productId", "p1", "driverWeight", 1.0));
 
         mockMvc.perform(put("/api/v1/rules/activity-to-product")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))

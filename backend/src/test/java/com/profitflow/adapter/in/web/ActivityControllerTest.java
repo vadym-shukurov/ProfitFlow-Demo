@@ -22,6 +22,7 @@ import java.util.Map;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -86,6 +87,7 @@ class ActivityControllerTest {
                 .thenReturn(new Activity("a-new", "New Activity"));
 
         mockMvc.perform(post("/api/v1/activities")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "New Activity"))))
@@ -97,6 +99,7 @@ class ActivityControllerTest {
     @Test
     void createWithBlankNameReturns400() throws Exception {
         mockMvc.perform(post("/api/v1/activities")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", ""))))
@@ -106,6 +109,7 @@ class ActivityControllerTest {
     @Test
     void createByAnalystReturns403() throws Exception {
         mockMvc.perform(post("/api/v1/activities")
+                        .with(csrf())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "Activity"))))
@@ -115,6 +119,7 @@ class ActivityControllerTest {
     @Test
     void createWithoutAuthReturns401() throws Exception {
         mockMvc.perform(post("/api/v1/activities")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "Activity"))))
                 .andExpect(status().isUnauthorized());

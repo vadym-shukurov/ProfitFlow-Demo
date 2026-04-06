@@ -138,6 +138,13 @@ profitflow:
     redis:
       enabled: ${RATE_LIMIT_REDIS_ENABLED:false}
 
+  # Demo user seeding (DemoDataSeeder, non-prod only). Plaintext here is for local/demo only;
+  # override with PROFITFLOW_DEMO_ADMIN_PASSWORD, _MANAGER_, _ANALYST_ in shared deployments.
+  demo-seed:
+    admin-password: ${PROFITFLOW_DEMO_ADMIN_PASSWORD:Admin1234!}
+    manager-password: ${PROFITFLOW_DEMO_MANAGER_PASSWORD:Manager123!}
+    analyst-password: ${PROFITFLOW_DEMO_ANALYST_PASSWORD:Analyst123!}
+
   # AI suggest: input cap (prompt-injection / cost control). Real providers still need
   # budgets and PII handling in the adapter implementation. Wall-clock timeout is enforced
   # by ResilientAiAllocatorDecorator (fallback suggestion on timeout).
