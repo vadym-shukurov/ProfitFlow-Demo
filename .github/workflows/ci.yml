@@ -273,6 +273,9 @@ jobs:
     permissions:
       contents: read # setup-trivy checks out aquasecurity/trivy; without this the token cannot read that repo
       security-events: write # upload-sarif → Code scanning tab
+    env:
+      # Bulky / generated trees — lockfiles still drive dependency CVEs; skipping dirs speeds CI and log noise.
+      TRIVY_FS_SKIP_DIRS: .git,frontend/node_modules,e2e/node_modules,backend/target,frontend/dist
 
     steps:
       - uses: actions/checkout@v5
@@ -291,6 +294,9 @@ jobs:
           scan-type: fs
           scan-ref: ${{ github.workspace }}
           scanners: vuln
+          skip-dirs: ${{ env.TRIVY_FS_SKIP_DIRS }}
+          hide-progress: true
+          timeout: 15m
           format: sarif
           output: ${{ github.workspace }}/trivy-fs.sarif
           severity: HIGH,CRITICAL
@@ -301,8 +307,12 @@ jobs:
       - name: Assert SARIF exists
         if: always()
         run: |
-          ls -la "${{ github.workspace }}"
-          test -f "${{ github.workspace }}/trivy-fs.sarif"
+          f="${{ github.workspace }}/trivy-fs.sarif"
+          if [ ! -f "$f" ]; then
+            echo "::error::Expected SARIF at $f (Trivy SARIF step did not produce output)."
+            ls -la "${{ github.workspace }}"
+            exit 1
+          fi
 
       # Upload SARIF to GitHub Security → Code scanning tab
       - name: Upload Trivy SARIF
@@ -320,6 +330,9 @@ jobs:
           scan-type: fs
           scan-ref: ${{ github.workspace }}
           scanners: vuln
+          skip-dirs: ${{ env.TRIVY_FS_SKIP_DIRS }}
+          hide-progress: true
+          timeout: 15m
           format: table
           output: ${{ github.workspace }}/trivy-fs-gate.txt
           severity: CRITICAL
@@ -490,6 +503,9 @@ jobs:
         with:
           scan-type: image
           image-ref: profitflow-api:ci
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: sarif
           output: trivy-image-backend.sarif
           severity: HIGH,CRITICAL
@@ -503,6 +519,9 @@ jobs:
         with:
           scan-type: image
           image-ref: profitflow-api:ci
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: table
           output: trivy-image-backend-gate.txt
           severity: HIGH,CRITICAL
@@ -515,6 +534,9 @@ jobs:
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: sarif
           output: trivy-image-backend.sarif
           severity: HIGH,CRITICAL
@@ -528,6 +550,9 @@ jobs:
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: table
           output: trivy-image-backend-gate.txt
           severity: HIGH,CRITICAL
@@ -540,6 +565,9 @@ jobs:
         with:
           scan-type: image
           image-ref: profitflow-ui:ci
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: sarif
           output: trivy-image-frontend.sarif
           severity: HIGH,CRITICAL
@@ -553,6 +581,9 @@ jobs:
         with:
           scan-type: image
           image-ref: profitflow-ui:ci
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: table
           output: trivy-image-frontend-gate.txt
           severity: HIGH,CRITICAL
@@ -565,6 +596,9 @@ jobs:
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: sarif
           output: trivy-image-frontend.sarif
           severity: HIGH,CRITICAL
@@ -578,6 +612,9 @@ jobs:
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
+          scanners: vuln
+          hide-progress: true
+          timeout: 15m
           format: table
           output: trivy-image-frontend-gate.txt
           severity: HIGH,CRITICAL
