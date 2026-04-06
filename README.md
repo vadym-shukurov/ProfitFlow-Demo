@@ -290,21 +290,25 @@ What `./scripts/ci-with-servers.sh` does:
 
 **SonarCloud dashboard (this repo):** [ProfitFlow-Demo — overview on SonarQube Cloud](https://sonarcloud.io/project/overview?id=vadym-shukurov_ProfitFlow-Demo) (issues, coverage, security hotspots, duplications).
 
-The workflow [`.github/workflows/sonarcloud.yml`](.github/workflows/sonarcloud.yml) runs **only for self-hosted SonarQube**: after backend `mvn verify` (JaCoCo XML) and frontend `ng test` (LCOV), it runs `sonar-scanner` (via SonarSource’s scan action) using `sonar-project.properties`. If **`SONAR_HOST_URL` is not set**, the job skips analysis (no SonarCloud upload from Actions). If **`SONAR_HOST_URL` is `https://sonarcloud.io`** (or any SonarCloud hostname), the job skips too — SonarCloud **blocks** running the scanner from CI while **Automatic analysis** is on, to avoid duplicate/conflicting results.
+The workflow [`.github/workflows/sonarcloud.yml`](.github/workflows/sonarcloud.yml) runs after backend `mvn verify` (JaCoCo XML) and frontend `ng test` (LCOV), then uploads analysis with `sonar-project.properties` via SonarSource’s scan action — **either** SonarCloud (**`SONAR_ORGANIZATION`** set, **`SONAR_HOST_URL` unset**) **or** self-hosted SonarQube (**`SONAR_HOST_URL`** set).
 
-**SonarCloud (hosted)**
+**SonarCloud (CI analysis from GitHub Actions)**
 
-Sign in at [sonarcloud.io](https://sonarcloud.io), import this repository, and use **Automatic analysis** (or another SonarCloud integration you prefer). SonarCloud allows **either** Automatic analysis **or** a CI-driven `sonar-scanner` upload for the same project — **not both** (duplicate runs and conflicting quality gates). This repository’s Actions workflow is for **self-hosted SonarQube only**, not SonarCloud.
+1. Import the repo on [sonarcloud.io](https://sonarcloud.io) and note the **organization key** and **project key**.
+2. If you use this workflow for uploads, in SonarCloud open the project → **Administration → Analysis Method** and turn **off Automatic analysis** (SonarCloud does not allow CI scanner and Automatic analysis together for the same project).
+3. **My Account → Security** → create a token.
+4. GitHub **Settings → Secrets and variables → Actions**:
+   - `SONAR_TOKEN`  
+   - `SONAR_ORGANIZATION`  
+   - `SONAR_PROJECT_KEY`  
+   - Do **not** set `SONAR_HOST_URL` for SonarCloud mode.
 
 **Self-hosted SonarQube (CI upload)**
 
 1. Create a project on your server and a user token with permission to **run analyses**.
-2. In GitHub: **Settings → Secrets and variables → Actions**, add:
-   - `SONAR_TOKEN`  
-   - `SONAR_PROJECT_KEY` — must match the project key on the server  
-   - `SONAR_HOST_URL` — your **SonarQube server** base URL (for example `https://sonar.example.com`), not `https://sonarcloud.io`  
+2. Add secrets: `SONAR_TOKEN`, `SONAR_PROJECT_KEY`, `SONAR_HOST_URL` (your server base URL). Leave **`SONAR_ORGANIZATION` unset** when `SONAR_HOST_URL` is set.
 
-Push to `main` / `open a PR` (within the path filters in the workflow) or run the workflow manually (**Actions → SonarQube → Run workflow**).
+Push to `main` / open a PR (within the workflow path filters) or run manually (**Actions → SonarCloud → Run workflow**). If `SONAR_TOKEN` / `SONAR_PROJECT_KEY` are missing (e.g. fork PRs), the job exits early without uploading — there is no separate “Sonar skipped” step.
 
 ---
 
