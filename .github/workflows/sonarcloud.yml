@@ -1,19 +1,13 @@
-# SonarCloud or self-hosted SonarQube — coverage, duplication, security hotspots, PR decoration (SonarCloud).
+# Self-hosted SonarQube — coverage, duplication, security hotspots (CI upload via sonar-scanner).
+# SonarCloud is not scanned from this workflow; use SonarCloud Automatic Analysis or another pipeline.
 #
 # Secrets (repository → Settings → Secrets and variables → Actions):
-#   Required (both modes):
-#     SONAR_TOKEN          — user token from SonarCloud or SonarQube (with “Execute analysis” permission)
-#     SONAR_PROJECT_KEY    — project key (e.g. myorg_profitflow on SonarCloud, or key you created on the server)
-#   SonarCloud only (do not set SONAR_HOST_URL):
-#     SONAR_ORGANIZATION   — SonarCloud organization key (Account → My Organizations → Key)
-#   Self-hosted SonarQube only:
+#   Required:
+#     SONAR_TOKEN          — user token with “Execute analysis” permission
+#     SONAR_PROJECT_KEY    — project key on the server
 #     SONAR_HOST_URL       — base URL, e.g. https://sonar.company.com (must be reachable from GitHub-hosted runners)
-#
-# SonarCloud: disable Automatic Analysis for this project (Administration → Analysis Method). CI-based
-# scanning and Automatic Analysis cannot both be enabled — the scanner fails with:
-#   "You are running CI analysis while Automatic Analysis is enabled."
 
-name: SonarCloud
+name: SonarQube
 
 on:
   push:
@@ -56,30 +50,27 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
         run: |
           if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Set SONAR_TOKEN and SONAR_PROJECT_KEY to enable Sonar. See README → Testing → Quality analysis (Sonar)."
+            echo "::notice::Set SONAR_TOKEN, SONAR_PROJECT_KEY, and SONAR_HOST_URL for self-hosted SonarQube. See README → Testing → Quality analysis (SonarQube and SonarCloud)."
             exit 0
           fi
-          if [ -n "$SONAR_HOST_URL" ]; then
-            echo "mode=sq" >> "$GITHUB_OUTPUT"
-          else
-            if [ -z "$SONAR_ORGANIZATION" ]; then
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::SonarCloud requires SONAR_ORGANIZATION, or set SONAR_HOST_URL for self-hosted SonarQube."
-              exit 0
-            fi
-            echo "mode=cloud" >> "$GITHUB_OUTPUT"
+          if [ -z "$SONAR_HOST_URL" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Set SONAR_HOST_URL only for self-hosted SonarQube. For SonarCloud, use Automatic Analysis in the SonarCloud UI — do not run sonar-scanner against sonarcloud.io from Actions (SonarCloud blocks duplicate CI + automatic scans)."
+            exit 0
           fi
+          HOST_LC=$(echo "$SONAR_HOST_URL" | tr '[:upper:]' '[:lower:]')
+          case "$HOST_LC" in
+            *sonarcloud.io*)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::SONAR_HOST_URL must not point at SonarCloud when Automatic Analysis is enabled. Remove this secret or use your self-hosted SonarQube URL only. SonarCloud: Administration → Analysis Method → Automatic analysis."
+              exit 0
+              ;;
+          esac
           echo "skip=false" >> "$GITHUB_OUTPUT"
-
-      - name: SonarCloud — CI vs automatic analysis
-        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'cloud'
-        run: |
-          echo "::notice title=SonarCloud setup::Automatic Analysis must be OFF for this project (SonarCloud → Administration → Analysis Method). If both CI and Automatic Analysis run, the scanner errors: CI analysis while Automatic Analysis is enabled."
 
       - name: Set up JDK 21
         if: steps.cfg.outputs.skip == 'false'
@@ -118,19 +109,8 @@ jobs:
           npm ci --prefer-online
           npx ng test --watch=false --browsers=ChromeHeadless --code-coverage --no-progress
 
-      - name: SonarCloud analysis
-        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'cloud'
-        # Pinned commit — see action release notes for supply-chain updates.
-        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-
       - name: SonarQube analysis (self-hosted)
-        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'sq'
+        if: steps.cfg.outputs.skip == 'false'
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
