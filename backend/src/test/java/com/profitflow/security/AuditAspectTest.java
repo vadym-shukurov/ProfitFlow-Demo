@@ -134,10 +134,10 @@ class AuditAspectTest {
                 .isSameAs(cause);
     }
 
-    // ── SpEL entity ID extraction ─────────────────────────────────────────────
+    // ── Property-path entity ID extraction ────────────────────────────────────
 
     @Test
-    void spelExpressionExtractsIdFromResult() throws Throwable {
+    void propertyPathExtractsIdFromResult() throws Throwable {
         record DomainEntity(String id, String name) {}
         when(pjp.proceed()).thenReturn(new DomainEntity("entity-uuid", "Test"));
         var audited = annotation("CREATE", "DomainEntity", "id", false);
@@ -150,9 +150,22 @@ class AuditAspectTest {
     }
 
     @Test
-    void spelNullResultYieldsNullEntityId() throws Throwable {
+    void resultPrefixExtractsIdFromResult() throws Throwable {
+        record DomainEntity(String id, String name) {}
+        when(pjp.proceed()).thenReturn(new DomainEntity("uuid-2", "X"));
+        var audited = annotation("CREATE", "DomainEntity", "#result.id", false);
+
+        aspect.around(pjp, audited);
+
+        ArgumentCaptor<AuditLogEntity> captor = ArgumentCaptor.forClass(AuditLogEntity.class);
+        verify(auditLogRepo).save(captor.capture());
+        assertThat(captor.getValue().getEntityId()).isEqualTo("uuid-2");
+    }
+
+    @Test
+    void nullResultYieldsNullEntityId() throws Throwable {
         when(pjp.proceed()).thenReturn(null);
-        var audited = annotation("DELETE", "Entity", "id()", false);
+        var audited = annotation("DELETE", "Entity", "id", false);
 
         aspect.around(pjp, audited);
 
@@ -162,9 +175,9 @@ class AuditAspectTest {
     }
 
     @Test
-    void invalidSpelExpressionFallsBackToNullEntityId() throws Throwable {
+    void invalidPropertyPathFallsBackToNullEntityId() throws Throwable {
         when(pjp.proceed()).thenReturn("plain-string");
-        // nonExistentProperty will evaluate to null / throw during SpEL evaluation
+        // BeanWrapper cannot resolve nested property on a String
         var audited = annotation("ACTION", "Entity", "nonExistentProperty", false);
 
         Object result = aspect.around(pjp, audited);

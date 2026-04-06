@@ -47,7 +47,7 @@ public class ActivityCatalogService implements ActivityCatalogUseCase {
      */
     @Override
     @AuditedOperation(action = "ACTIVITY_CREATED", entityType = "Activity",
-                      entityIdSpEL = "#result.id()")
+                      entityIdSpEL = "#result.id")
     @CacheEvict(value = CacheNames.ACTIVITIES, allEntries = true)
     public Activity createActivity(String name) {
         if (name == null || name.isBlank()) {

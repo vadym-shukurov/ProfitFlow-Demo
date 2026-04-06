@@ -27,8 +27,9 @@ public @interface AuditedOperation {
     String entityType() default "";
 
     /**
-     * SpEL expression evaluated against the method result to extract the entity ID
-     * (root {@code #result}).
+     * Nested JavaBean property path read from the method return value (optional
+     * {@code #result.} prefix). Only paths like {@code id} or {@code user.id} are
+     * allowed — not arbitrary SpEL.
      */
     String entityIdSpEL() default "";
 

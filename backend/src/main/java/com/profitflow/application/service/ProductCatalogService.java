@@ -47,7 +47,7 @@ public class ProductCatalogService implements ProductCatalogUseCase {
      */
     @Override
     @AuditedOperation(action = "PRODUCT_CREATED", entityType = "Product",
-                      entityIdSpEL = "#result.id()")
+                      entityIdSpEL = "#result.id")
     @CacheEvict(value = CacheNames.PRODUCTS, allEntries = true)
     public Product createProduct(String name) {
         if (name == null || name.isBlank()) {

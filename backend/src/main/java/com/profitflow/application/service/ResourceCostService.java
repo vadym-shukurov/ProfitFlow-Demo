@@ -99,7 +99,7 @@ public class ResourceCostService implements ResourceCostUseCase {
      */
     @Override
     @AuditedOperation(action = "RESOURCE_COST_CREATED", entityType = "ResourceCost",
-                      entityIdSpEL = "id()", critical = true)
+                      entityIdSpEL = "id", critical = true)
     @CacheEvict(value = CacheNames.RESOURCE_COSTS, allEntries = true)
     public ResourceCost createCost(String label, BigDecimal amount, String currencyCode) {
         if (label == null || label.isBlank()) {

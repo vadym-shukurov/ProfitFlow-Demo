@@ -14,7 +14,9 @@ RUN mvn dependency:go-offline -B -q
 # before this image is built (fail-fast in the pipeline, not in Docker).
 FROM deps AS builder
 COPY src ./src
-RUN mvn package -DskipTests -B -q
+# Single predictable path for runtime COPY — avoids globs (Sonar docker:S6504 parses COPY reliably).
+RUN mvn package -DskipTests -B -q \
+    && cp /build/target/profitflow-api-*.jar /build/app.jar
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
 # Distroless Debian 12 bundles fixed .deb sets with no apt — it can lag
@@ -36,9 +38,8 @@ RUN apt-get update \
 WORKDIR /app
 
 # Copy only the fat JAR — no source, no test classes, no POM.
-# --chmod=444: read-only for nonroot (docker:S6504 — no write on copied artifact).
-COPY --from=builder --chown=nonroot:nonroot --chmod=444 \
-     /build/target/profitflow-api-*.jar app.jar
+# --chmod=444: no write bits on the artifact (docker:S6504); one COPY line so scanners see the flag.
+COPY --from=builder --chown=nonroot:nonroot --chmod=444 /build/app.jar app.jar
 
 EXPOSE 8080
 

@@ -6,12 +6,10 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.expression.Expression;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,9 +18,10 @@ import org.springframework.stereotype.Component;
  * writes an audit log entry <em>after</em> each call (whether successful or not).
  *
  * <h2>Entity ID extraction</h2>
- * If {@link AuditedOperation#entityIdSpEL()} is set, the expression is evaluated
- * against the method's return value (using {@code #result} as root) and the
- * result is stored as the {@code entityId} in the audit entry.
+ * If {@link AuditedOperation#entityIdSpEL()} is set, a <em>property path</em> is read
+ * from the method's return value (optional {@code #result.} prefix) and the value is
+ * stored as the {@code entityId} in the audit entry. Only simple paths like {@code id}
+ * or {@code user.id} are allowed — no SpEL or method calls.
  *
  * <h2>Critical audit mode</h2>
  * When {@link AuditedOperation#critical()} is {@code true}, the aspect delegates
@@ -43,8 +42,6 @@ import org.springframework.stereotype.Component;
 public class AuditAspect {
 
     private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
-
-    private static final ExpressionParser SPEL = new SpelExpressionParser();
 
     private final AuditService auditService;
 
@@ -81,10 +78,11 @@ public class AuditAspect {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * Evaluates the SpEL expression against the method result to extract an entity ID.
+     * Reads a bean property path from the method result to extract an entity ID.
+     * Uses {@link BeanWrapper} instead of SpEL so the path cannot be evaluated as code.
      *
-     * @param spel   the expression, or blank to skip evaluation
-     * @param result the method return value used as the SpEL root object
+     * @param spel   the path (legacy name: was SpEL-shaped); blank skips
+     * @param result the method return value used as the root bean
      * @return the extracted entity ID string, or {@code null} if none
      */
     private static String extractEntityId(String spel, Object result) {
@@ -92,25 +90,20 @@ public class AuditAspect {
             return null;
         }
         try {
-            // Treat SpEL as potentially unsafe: we support only read-only property paths, and
-            // intentionally reject method calls (e.g. `id()`), type references (T(...)),
-            // constructors (`new ...`), and other expression features.
-            //
             // For compatibility, allow `#result.<path>` and normalize it to `<path>`.
             String normalized = spel.strip();
             if (normalized.startsWith("#result.")) {
                 normalized = normalized.substring("#result.".length());
             }
 
-            // Only allow property paths like "id" or "user.id".
+            // Only allow nested property paths like "id" or "user.id" (no SpEL, methods, etc.).
             if (!normalized.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
                 log.warn("Rejected non-property entityIdSpEL='{}'", spel);
                 return null;
             }
 
-            Expression expr  = SPEL.parseExpression(normalized);
-            StandardEvaluationContext ctx = new StandardEvaluationContext(result);
-            Object value = expr.getValue(ctx);
+            BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(result);
+            Object value = wrapper.getPropertyValue(normalized);
             return value != null ? value.toString() : null;
         } catch (Exception ex) {
             log.warn("Failed to evaluate entityIdSpEL='{}': {}", spel, ex.getMessage());

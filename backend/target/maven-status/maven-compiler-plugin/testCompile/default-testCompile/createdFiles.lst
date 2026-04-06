@@ -34,6 +34,7 @@ com/profitflow/application/service/AllocationRuleServiceTest.class
 com/profitflow/security/ratelimit/RedisRateLimiterBackendTest.class
 com/profitflow/adapter/in/web/AllocationRunQueryControllerTest.class
 com/profitflow/adapter/in/web/ProductControllerTest.class
+com/profitflow/security/AuditAspectTest$2DomainEntity.class
 com/profitflow/security/RateLimitingFilterTest.class
 com/profitflow/application/service/AiSuggestionServiceTest.class
 com/profitflow/security/SensitiveApiCacheHeaderFilterTest.class
