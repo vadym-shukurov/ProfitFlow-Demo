@@ -42,7 +42,26 @@ module.exports = function (config) {
       },
     },
     reporters: ['spec', 'progress', 'kjhtml'],
-    browsers: ['Chrome'],
-    restartOnFileChange: true,
+    browsers: ['ChromeHeadlessCI'],
+    customLaunchers: {
+      ChromeHeadlessCI: {
+        base: 'ChromeHeadless',
+        flags: [
+          '--no-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+        ],
+      },
+    },
+    // Avoid flaky CI/local headless disconnects on slower machines.
+    browserDisconnectTolerance: 3,
+    browserDisconnectTimeout: 10000,
+    browserNoActivityTimeout: 120000,
+    captureTimeout: 120000,
+    restartOnFileChange: false,
+    singleRun: true,
   });
 };

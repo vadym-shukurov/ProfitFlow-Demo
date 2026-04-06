@@ -64,8 +64,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private static String sanitizeForLogs(String value) {
-        if (value == null) return "n/a";
+        if (value == null) {
+            return "n/a";
+        }
         // Prevent log forging by stripping control characters.
-        return value.replaceAll("[\\r\\n\\t\\0\\f]", "");
+        return value.replaceAll("[\\r\\n\\t\\u0000\\f]", "");
     }
 }

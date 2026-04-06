@@ -42,23 +42,33 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain chain) throws ServletException, IOException {
 
-<span class="fc" id="L45">        String ip   = clientIpResolver.resolve(request);</span>
-<span class="fc" id="L46">        String path = request.getRequestURI();</span>
+<span class="fc" id="L45">        String ipRaw = clientIpResolver.resolve(request);</span>
+<span class="fc" id="L46">        String pathRaw = request.getRequestURI();</span>
+<span class="fc" id="L47">        String ip = sanitizeForLogs(ipRaw);</span>
+<span class="fc" id="L48">        String path = sanitizeForLogs(pathRaw);</span>
 
-<span class="pc bpc" id="L48" title="1 of 2 branches missed.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
-<span class="fc" id="L49">            chain.doFilter(request, response);</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
+<span class="fc" id="L51">            chain.doFilter(request, response);</span>
         } else {
-<span class="nc" id="L51">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
-<span class="nc" id="L52">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
+<span class="fc" id="L53">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc" id="L54">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
                     ip, path, correlationId);
-<span class="nc" id="L54">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
-<span class="nc" id="L55">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
-<span class="nc" id="L56">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
-<span class="nc bnc" id="L57" title="All 2 branches missed.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
-<span class="nc" id="L58">            response.getWriter().write(</span>
+<span class="fc" id="L56">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
+<span class="fc" id="L57">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
+<span class="fc" id="L58">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
+<span class="fc" id="L60">            response.getWriter().write(</span>
                     &quot;{\&quot;message\&quot;:\&quot;Too many requests — please wait before retrying.\&quot;,&quot;
                     + &quot;\&quot;correlationId\&quot;:\&quot;&quot; + cid + &quot;\&quot;}&quot;);
         }
-<span class="fc" id="L62">    }</span>
+<span class="fc" id="L64">    }</span>
+
+    private static String sanitizeForLogs(String value) {
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L68">            return &quot;n/a&quot;;</span>
+        }
+        // Prevent log forging by stripping control characters.
+<span class="fc" id="L71">        return value.replaceAll(&quot;[\\r\\n\\t\\u0000\\f]&quot;, &quot;&quot;);</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

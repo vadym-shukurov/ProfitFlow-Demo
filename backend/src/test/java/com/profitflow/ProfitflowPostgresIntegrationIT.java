@@ -25,11 +25,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * database, complementing JaCoCo unit-test coverage.
  *
  * <p>Requires Docker. Run: {@code mvn verify -DskipITs=false} (Failsafe, {@code @Tag("integration")}).
+ * When Docker is not available (e.g. minimal local setups), the test class is skipped rather than
+ * failing the build.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @Tag("integration")
 class ProfitflowPostgresIntegrationIT {
 

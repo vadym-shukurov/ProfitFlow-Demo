@@ -32,7 +32,9 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/AuditAspectTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/AuditServiceTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/ClientIpResolverTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/CorrelationIdFilterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/FallbackJwtDecoderTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/RateLimitingFilterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/RefreshTokenServiceTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/RevokedTokenValidatorTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/RsaKeyLoaderTest.java

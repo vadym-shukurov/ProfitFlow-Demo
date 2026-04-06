@@ -32,6 +32,14 @@
         <!-- Skip Docker-based ITs locally; CI sets -DskipITs=false -->
         <skipITs>true</skipITs>
         <pmd.version>3.26.0</pmd.version>
+        <!-- Security: pin Spring Security to a version with CVE-2026-22732 fixed -->
+        <spring-security.version>6.5.9</spring-security.version>
+        <!-- Security: pin embedded Tomcat above CVE-2024-50379 / CVE-2025-24813 fix versions -->
+        <tomcat.version>10.1.52</tomcat.version>
+        <!-- Security: pin Spring Framework above CVE-2025-41249 fix version -->
+        <spring-framework.version>6.2.11</spring-framework.version>
+        <!-- Security: pin pgjdbc above CVE-2025-49146 fix version -->
+        <postgresql.version>42.7.7</postgresql.version>
     </properties>
 
     <dependencies>

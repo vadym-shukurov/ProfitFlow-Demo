@@ -72,14 +72,14 @@ import java.util.regex.Pattern;
      * @return a safe correlation ID string
      */
     static String sanitize(String candidate) {
-<span class="pc bpc" id="L75" title="3 of 4 branches missed.">        if (candidate == null || candidate.isBlank()) {</span>
+<span class="fc bfc" id="L75" title="All 4 branches covered.">        if (candidate == null || candidate.isBlank()) {</span>
 <span class="fc" id="L76">            return UUID.randomUUID().toString();</span>
         }
-<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (SAFE_CID.matcher(candidate).matches()) {</span>
-<span class="nc" id="L79">            return candidate;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (SAFE_CID.matcher(candidate).matches()) {</span>
+<span class="fc" id="L79">            return candidate;</span>
         }
         // Client-supplied ID failed validation — generate a server-side ID
-<span class="nc" id="L82">        return UUID.randomUUID().toString();</span>
+<span class="fc" id="L82">        return UUID.randomUUID().toString();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
