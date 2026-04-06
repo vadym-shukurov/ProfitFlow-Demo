@@ -193,6 +193,8 @@ jobs:
   # Notes:
   # - We intentionally run Semgrep without Semgrep Cloud (no SEMGREP_APP_TOKEN required).
   # - Ruleset can be tuned; start with widely used community packs.
+  # - html.security.plaintext-http-link is excluded: JaCoCo/W3C DTD output under target/ is not actionable;
+  #   app HTML uses https://; dev-only http:// in Java is annotated with nosemgrep where needed.
   semgrep:
     name: "SAST (Semgrep)"
     runs-on: ubuntu-latest
@@ -215,15 +217,19 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade -r requirements.txt
 
+      # JaCoCo / Maven HTML under target/ is not source; Semgrep's plaintext-http rule flags W3C DTD URLs.
+      - name: Ensure build output is absent before SAST
+        run: rm -rf backend/target frontend/dist
+
       - name: Run Semgrep (SARIF)
         run: |
           semgrep scan \
             --config p/security-audit \
             --config p/owasp-top-ten \
-            --exclude backend/target \
-            --exclude frontend/dist \
-            --exclude frontend/node_modules \
-            --exclude e2e/node_modules \
+            --exclude '**/target/**' \
+            --exclude '**/dist/**' \
+            --exclude '**/node_modules/**' \
+            --exclude-rule html.security.plaintext-http-link.plaintext-http-link \
             --sarif \
             --output semgrep.sarif \
             . || true
