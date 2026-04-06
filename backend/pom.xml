@@ -28,7 +28,7 @@
         <!-- 4.9.8+ bundles ASM that understands Java 25 (class file v69); older SpotBugs fails verify on JDK 25 -->
         <spotbugs.version>4.9.8.3</spotbugs.version>
         <checkstyle.version>3.3.1</checkstyle.version>
-        <owasp.dependency-check.version>9.2.0</owasp.dependency-check.version>
+        <owasp.dependency-check.version>12.2.0</owasp.dependency-check.version>
         <!-- Skip Docker-based ITs locally; CI sets -DskipITs=false -->
         <skipITs>true</skipITs>
         <pmd.version>3.26.0</pmd.version>
