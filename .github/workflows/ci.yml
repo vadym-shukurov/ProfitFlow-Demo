@@ -276,17 +276,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Trivy
-        uses: aquasecurity/setup-trivy@v0.2.1
-        with:
-          version: latest
-
       # Trivy scans the repository filesystem for secrets, misconfigurations,
       # and known vulnerable dependency versions.
       - name: Trivy filesystem scan (SARIF)
         id: trivy-fs-sarif
         run: |
-          trivy fs \
+          docker run --rm \
+            -v "${PWD}:/work" \
+            -w /work \
+            aquasec/trivy:0.57.1 \
+            fs \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --format sarif \
@@ -318,7 +317,11 @@ jobs:
         id: trivy-fs-gate
         continue-on-error: true
         run: |
-          trivy fs \
+          docker run --rm \
+            -v "${PWD}:/work" \
+            -w /work \
+            aquasec/trivy:0.57.1 \
+            fs \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --format table \
