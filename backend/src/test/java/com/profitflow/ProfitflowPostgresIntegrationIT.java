@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * When Docker is not available (e.g. minimal local setups), the test class is skipped rather than
  * failing the build.
  */
-@SpringBootTest
+@SpringBootTest(classes = ProfitflowApplication.class, webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Testcontainers(disabledWithoutDocker = true)

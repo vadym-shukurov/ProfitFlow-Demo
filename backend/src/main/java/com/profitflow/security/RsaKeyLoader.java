@@ -133,11 +133,20 @@ public class RsaKeyLoader {
         if (isProductionProfile()) {
             guardClasspathUsage("RSA_PUBLIC_KEY_PEM");
         }
-        RSAPublicKey fromClasspath = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;
-        if (fromClasspath != null) {
-            log.warn("SECURITY WARNING: RSA_PUBLIC_KEY_PEM is not set. Using bundled classpath public key. "
+        RSAPublicKey classpathPublic = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;
+        RSAPrivateKey classpathPrivate = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;
+
+        // IMPORTANT: Signing requires a matched keypair. If only the public key is present,
+        // we must NOT use it together with a generated private key (would break login with 500).
+        if (classpathPublic != null && classpathPrivate != null) {
+            log.warn("SECURITY WARNING: RSA_PUBLIC_KEY_PEM is not set. Using bundled classpath keypair. "
                     + "This is acceptable for local development only — NEVER in production.");
-            return fromClasspath;
+            return classpathPublic;
+        }
+        if (classpathPublic != null && classpathPrivate == null) {
+            log.warn("SECURITY WARNING: Only a classpath public key is configured (no private key). "
+                    + "Generating an ephemeral dev keypair so JWT signing works. "
+                    + "Tokens will be invalid after restart.");
         }
         return (RSAPublicKey) devKeyPair().getPublic();
     }
@@ -155,11 +164,12 @@ public class RsaKeyLoader {
         if (isProductionProfile()) {
             guardClasspathUsage("RSA_PRIVATE_KEY_PEM");
         }
-        RSAPrivateKey fromClasspath = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;
-        if (fromClasspath != null) {
-            log.warn("SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set. Using bundled classpath private key. "
+        RSAPublicKey classpathPublic = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;
+        RSAPrivateKey classpathPrivate = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;
+        if (classpathPublic != null && classpathPrivate != null) {
+            log.warn("SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set. Using bundled classpath keypair. "
                     + "This is acceptable for local development only — NEVER in production.");
-            return fromClasspath;
+            return classpathPrivate;
         }
         log.warn("SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set and no classpath private key is configured. "
                 + "Generating an ephemeral dev keypair for this JVM. Tokens will be invalid after restart.");
