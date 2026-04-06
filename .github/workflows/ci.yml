@@ -329,6 +329,7 @@ jobs:
             --severity CRITICAL \
             --ignore-unfixed \
             --format table \
+            --output trivy-fs-gate.txt \
             --exit-code 1 \
             --skip-dirs backend/target \
             --skip-dirs frontend/node_modules \
@@ -337,6 +338,14 @@ jobs:
             --skip-dirs e2e/node_modules \
             --skip-dirs e2e/playwright-report \
             .
+
+      - name: Upload Trivy gate output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-gate
+          path: trivy-fs-gate.txt
+          retention-days: 14
 
       - name: Fail build on HIGH/CRITICAL findings
         if: steps.trivy-fs-gate.outcome == 'failure'
