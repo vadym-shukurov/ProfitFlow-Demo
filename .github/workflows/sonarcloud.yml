@@ -8,6 +8,10 @@
 #     SONAR_ORGANIZATION   — SonarCloud organization key (Account → My Organizations → Key)
 #   Self-hosted SonarQube only:
 #     SONAR_HOST_URL       — base URL, e.g. https://sonar.company.com (must be reachable from GitHub-hosted runners)
+#
+# SonarCloud: disable Automatic Analysis for this project (Administration → Analysis Method). CI-based
+# scanning and Automatic Analysis cannot both be enabled — the scanner fails with:
+#   "You are running CI analysis while Automatic Analysis is enabled."
 
 name: SonarCloud
 
@@ -71,6 +75,11 @@ jobs:
             echo "mode=cloud" >> "$GITHUB_OUTPUT"
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: SonarCloud — CI vs automatic analysis
+        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'cloud'
+        run: |
+          echo "::notice title=SonarCloud setup::Automatic Analysis must be OFF for this project (SonarCloud → Administration → Analysis Method). If both CI and Automatic Analysis run, the scanner errors: CI analysis while Automatic Analysis is enabled."
 
       - name: Set up JDK 21
         if: steps.cfg.outputs.skip == 'false'

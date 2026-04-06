@@ -293,9 +293,10 @@ The workflow [`.github/workflows/sonarcloud.yml`](.github/workflows/sonarcloud.y
 **Option A — SonarCloud (hosted)**
 
 1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and **import this repository** (or create a project and note the **organization key** and **project key**).
-2. In SonarCloud: **My Account → Security** → generate a token.
-3. In GitHub: **Settings → Secrets and variables → Actions**, add:
-   - `SONAR_TOKEN` — the token from step 2  
+2. **Required:** In SonarCloud open the project → **Administration → Analysis Method** and turn **off Automatic analysis** (use **CI-based analysis** only). This workflow runs `sonar-scanner` in GitHub Actions; if Automatic Analysis stays on, the job fails with: *You are running CI analysis while Automatic Analysis is enabled.*
+3. In SonarCloud: **My Account → Security** → generate a token.
+4. In GitHub: **Settings → Secrets and variables → Actions**, add:
+   - `SONAR_TOKEN` — the token from step 3  
    - `SONAR_ORGANIZATION` — organization key from SonarCloud  
    - `SONAR_PROJECT_KEY` — project key (shown on the project homepage)  
    - Do **not** set `SONAR_HOST_URL` (empty/absent selects SonarCloud).

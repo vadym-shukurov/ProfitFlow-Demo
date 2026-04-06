@@ -1,0 +1,14 @@
+# Shrink build context and block accidental secrets / tooling (pairs with explicit COPY in Dockerfile).
+.git
+**/.git
+node_modules
+dist
+.angular
+coverage
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+*.md
+README.md

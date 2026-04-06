@@ -36,7 +36,8 @@ RUN apt-get update \
 WORKDIR /app
 
 # Copy only the fat JAR — no source, no test classes, no POM.
-COPY --from=builder --chown=nonroot:nonroot \
+# --chmod=444: read-only for nonroot (docker:S6504 — no write on copied artifact).
+COPY --from=builder --chown=nonroot:nonroot --chmod=444 \
      /build/target/profitflow-api-*.jar app.jar
 
 EXPOSE 8080
