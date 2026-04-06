@@ -279,6 +279,9 @@ jobs:
       # Trivy scans the repository filesystem for secrets, misconfigurations,
       # and known vulnerable dependency versions.
       - name: Trivy filesystem scan
+        id: trivy-fs
+        # Ensure SARIF uploads even when vulnerabilities are found.
+        continue-on-error: true
         # Pin to specific commit SHA for supply-chain security — do not use @master
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
         with:
@@ -288,18 +291,24 @@ jobs:
           # but should not be part of the security signal and can easily break CI.
           skip-dirs: "**/node_modules,**/dist,**/coverage,**/target"
           format: sarif
-          output: trivy-fs.sarif
+          output: ${{ github.workspace }}/trivy-fs.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
 
       # Upload SARIF to GitHub Security → Code scanning tab
       - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: trivy-fs.sarif
+          sarif_file: ${{ github.workspace }}/trivy-fs.sarif
           category: trivy-fs
+
+      - name: Fail build on HIGH/CRITICAL findings
+        if: steps.trivy-fs.outcome == 'failure'
+        run: |
+          echo "Trivy reported HIGH/CRITICAL findings."
+          exit 1
 
   # ── Job 5: Docker image build + scan + push ─────────────────────────────────
   docker-build:
@@ -574,6 +583,9 @@ jobs:
     steps:
       - name: Check all jobs succeeded
         run: |
+          echo "Needs results:"
+          echo '${{ toJson(needs) }}' | python -c 'import json,sys; n=json.load(sys.stdin); print("\n".join([f"- {k}: {v.get(\"result\")}" for k,v in n.items()]))'
+
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
              [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
             echo "One or more CI jobs failed or were cancelled."
