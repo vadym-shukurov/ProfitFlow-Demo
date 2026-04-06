@@ -18,7 +18,7 @@ RUN mvn package -DskipTests -B -q
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
 # Distroless Debian 12 bundles fixed .deb sets with no apt — it can lag
-# bookworm-security (e.g. libpng16-16 deb12u3 vs deb12u4) and fail Grype. Use
+# bookworm-security (e.g. libpng16-16 deb12u3 vs deb12u4) and fail strict image scans. Use
 # Eclipse Temurin on Ubuntu Noble so security updates apply at image build time.
 FROM eclipse-temurin:21-jre-noble AS runtime
 
