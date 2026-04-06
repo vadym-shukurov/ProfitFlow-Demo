@@ -410,7 +410,7 @@ jobs:
           docker pull maven:3.9-eclipse-temurin-21
           docker pull eclipse-temurin:21-jre-noble
           docker pull node:20-alpine
-          docker pull nginxinc/nginx-unprivileged:1.27-alpine
+          docker pull nginxinc/nginx-unprivileged:1.29.5-alpine
 
       - name: Update Grype vulnerability DB
         run: |

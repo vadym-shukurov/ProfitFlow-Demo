@@ -4,7 +4,7 @@
 FROM node:20-alpine AS builder
 
 # Alpine OS patches (e.g. libpng): apk upgrade, then pin libpng when the mirror provides it.
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade -a --no-cache
 RUN apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng
 
 WORKDIR /app
@@ -21,14 +21,17 @@ COPY . .
 RUN npm run build -- --configuration=production
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
-# Official unprivileged nginx — runs as non-root; listens on 8080 (see nginx.conf).
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+# Official unprivileged nginx on Alpine 3.23+ (libavif ≥1.3.0; nginx 1.29.x apk, not 1.27.x).
+FROM nginxinc/nginx-unprivileged:1.29.5-alpine AS runtime
 
 # Temporarily escalate to root to modify the filesystem (the base image defaults to a non-root user).
 USER root
 
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade -a --no-cache
 RUN apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng
+RUN apk add --no-cache libavif=1.3.0-r0 || apk add --no-cache -u libavif
+RUN apk add --no-cache -u tiff libtiff || apk add --no-cache -u tiff || true
+RUN apk add --no-cache -u nginx nghttp2-libs curl libcurl || true
 
 # Prepare writable web root (nginx.conf points here).
 RUN mkdir -p /tmp/nginx/html && chown -R nginx:nginx /tmp/nginx
