@@ -63,6 +63,7 @@ public class ClientIpResolver implements ClientIpResolverPort {
      * @param request the current HTTP request
      * @return best-effort client IP string; never {@code null}
      */
+    @Override
     public String resolve(HttpServletRequest request) {
         String remoteAddr = request.getRemoteAddr();
 
@@ -87,6 +88,7 @@ public class ClientIpResolver implements ClientIpResolverPort {
      * Resolves the client IP from the current request context.
      * Safe to call from outside a servlet (returns {@code null} if no request is active).
      */
+    @Override
     public String resolveFromContext() {
         try {
             var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();

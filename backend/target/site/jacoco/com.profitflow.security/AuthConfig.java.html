@@ -3,8 +3,7 @@
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
@@ -16,17 +15,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * login flow, not for JWT validation.
  */
 @Configuration
-<span class="fc" id="L19">public class AuthConfig {</span>
+<span class="fc" id="L18">public class AuthConfig {</span>
 
     @Bean
     public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration,
             AppUserDetailsService userDetailsService,
-            PasswordEncoder encoder) {
-
-<span class="fc" id="L26">        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();</span>
-<span class="fc" id="L27">        provider.setUserDetailsService(userDetailsService);</span>
-<span class="fc" id="L28">        provider.setPasswordEncoder(encoder);</span>
-<span class="fc" id="L29">        return new ProviderManager(provider);</span>
+            PasswordEncoder encoder) throws Exception {
+        // Ensure these beans are present so the default AuthenticationManager can wire a DAO provider.
+        // (They are deliberately injected here to keep @WebMvcTest slices honest.)
+<span class="pc bpc" id="L27" title="2 of 4 branches missed.">        if (userDetailsService == null || encoder == null) {</span>
+<span class="nc" id="L28">            throw new IllegalStateException(&quot;Auth configuration is incomplete&quot;);</span>
+        }
+<span class="fc" id="L30">        return configuration.getAuthenticationManager();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -52,33 +52,32 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 <span class="fc bfc" id="L52" title="All 2 branches covered.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
 <span class="fc" id="L53">            chain.doFilter(request, response);</span>
         } else {
-<span class="fc" id="L55">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc" id="L55">            String correlationId = sanitizeForLogs(MDC.get(CorrelationIdFilter.MDC_KEY));</span>
 <span class="fc" id="L56">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
                     ip, path, correlationId);
 <span class="fc" id="L58">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
 <span class="fc" id="L59">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
 <span class="fc" id="L60">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
-<span class="fc bfc" id="L61" title="All 2 branches covered.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
-<span class="fc" id="L62">            response.getWriter().write(</span>
+<span class="fc" id="L61">            response.getWriter().write(</span>
                     &quot;{\&quot;message\&quot;:\&quot;Too many requests — please wait before retrying.\&quot;,&quot;
-                    + &quot;\&quot;correlationId\&quot;:\&quot;&quot; + cid + &quot;\&quot;}&quot;);
+                    + &quot;\&quot;correlationId\&quot;:\&quot;&quot; + correlationId + &quot;\&quot;}&quot;);
         }
-<span class="fc" id="L66">    }</span>
+<span class="fc" id="L65">    }</span>
 
     private static String sanitizeForLogs(String value) {
-<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (value == null) {</span>
-<span class="nc" id="L70">            return &quot;n/a&quot;;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L69">            return &quot;n/a&quot;;</span>
         }
         // Prevent log forging and keep logs parseable:
         // - remove control chars
         // - allowlist a small set of characters (drop everything else)
         // - cap length to avoid unbounded log amplification
-<span class="fc" id="L76">        String stripped = value.replaceAll(&quot;[\\r\\n\\t\\u0000\\f]&quot;, &quot;&quot;);</span>
-<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        String candidate = stripped.length() &gt; 200 ? stripped.substring(0, 200) : stripped;</span>
-<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (LOG_SAFE.matcher(candidate).matches()) {</span>
-<span class="fc" id="L79">            return candidate;</span>
+<span class="fc" id="L75">        String stripped = value.replaceAll(&quot;[\\r\\n\\t\\u0000\\f]&quot;, &quot;&quot;);</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        String candidate = stripped.length() &gt; 200 ? stripped.substring(0, 200) : stripped;</span>
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        if (LOG_SAFE.matcher(candidate).matches()) {</span>
+<span class="fc" id="L78">            return candidate;</span>
         }
-<span class="nc" id="L81">        return candidate.replaceAll(&quot;[^A-Za-z0-9 ._:/?\\-]&quot;, &quot;_&quot;);</span>
+<span class="nc" id="L80">        return candidate.replaceAll(&quot;[^A-Za-z0-9 ._:/?\\-]&quot;, &quot;_&quot;);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

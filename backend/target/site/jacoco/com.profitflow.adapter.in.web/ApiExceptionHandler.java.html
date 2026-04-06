@@ -130,17 +130,18 @@ import jakarta.validation.ConstraintViolationException;
     /** Returns 400 for malformed JSON bodies (syntax errors, wrong type). */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity&lt;ApiErrorResponse&gt; unreadableBody(HttpMessageNotReadableException ex) {
-<span class="fc" id="L133">        return ResponseEntity</span>
-<span class="fc" id="L134">                .status(HttpStatus.BAD_REQUEST)</span>
-<span class="fc" id="L135">                .body(new ApiErrorResponse(&quot;Malformed JSON request body.&quot;, correlationId()));</span>
+<span class="fc" id="L133">        log.debug(&quot;Malformed JSON request [correlationId={}]: {}&quot;, correlationId(), ex.getMessage());</span>
+<span class="fc" id="L134">        return ResponseEntity</span>
+<span class="fc" id="L135">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L136">                .body(new ApiErrorResponse(&quot;Malformed JSON request body.&quot;, correlationId()));</span>
     }
 
     /** Returns 400 when required query parameters are missing. */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity&lt;ApiErrorResponse&gt; missingParameter(MissingServletRequestParameterException ex) {
-<span class="fc" id="L141">        return ResponseEntity</span>
-<span class="fc" id="L142">                .status(HttpStatus.BAD_REQUEST)</span>
-<span class="fc" id="L143">                .body(new ApiErrorResponse(&quot;Missing required parameter: &quot; + ex.getParameterName(), correlationId()));</span>
+<span class="fc" id="L142">        return ResponseEntity</span>
+<span class="fc" id="L143">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L144">                .body(new ApiErrorResponse(&quot;Missing required parameter: &quot; + ex.getParameterName(), correlationId()));</span>
     }
 
     /**
@@ -149,32 +150,32 @@ import jakarta.validation.ConstraintViolationException;
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity&lt;ApiErrorResponse&gt; internalError(Exception ex) {
-<span class="fc bfc" id="L152" title="All 2 branches covered.">        if (ex instanceof AccessDeniedException ade) {</span>
-<span class="fc" id="L153">            throw ade;</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        if (ex instanceof AccessDeniedException ade) {</span>
+<span class="fc" id="L154">            throw ade;</span>
         }
-<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        if (ex instanceof AuthenticationException ae) {</span>
-<span class="nc" id="L156">            throw ae;</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        if (ex instanceof AuthenticationException ae) {</span>
+<span class="nc" id="L157">            throw ae;</span>
         }
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (ex instanceof ConstraintViolationException cve) {</span>
-<span class="nc" id="L159">            return constraintViolation(cve);</span>
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (ex instanceof ConstraintViolationException cve) {</span>
+<span class="nc" id="L160">            return constraintViolation(cve);</span>
         }
-<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (ex instanceof HttpMessageNotReadableException hmnre) {</span>
-<span class="nc" id="L162">            return unreadableBody(hmnre);</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (ex instanceof HttpMessageNotReadableException hmnre) {</span>
+<span class="nc" id="L163">            return unreadableBody(hmnre);</span>
         }
-<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (ex instanceof MissingServletRequestParameterException msrpe) {</span>
-<span class="nc" id="L165">            return missingParameter(msrpe);</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (ex instanceof MissingServletRequestParameterException msrpe) {</span>
+<span class="nc" id="L166">            return missingParameter(msrpe);</span>
         }
-<span class="fc" id="L167">        String cid = correlationId();</span>
-<span class="fc" id="L168">        log.error(&quot;Unhandled exception [correlationId={}]: {}&quot;, cid, ex.getMessage(), ex);</span>
-<span class="fc" id="L169">        return ResponseEntity</span>
-<span class="fc" id="L170">                .status(HttpStatus.INTERNAL_SERVER_ERROR)</span>
-<span class="fc" id="L171">                .body(new ApiErrorResponse(</span>
+<span class="fc" id="L168">        String cid = correlationId();</span>
+<span class="fc" id="L169">        log.error(&quot;Unhandled exception [correlationId={}]: {}&quot;, cid, ex.getMessage(), ex);</span>
+<span class="fc" id="L170">        return ResponseEntity</span>
+<span class="fc" id="L171">                .status(HttpStatus.INTERNAL_SERVER_ERROR)</span>
+<span class="fc" id="L172">                .body(new ApiErrorResponse(</span>
                         &quot;An unexpected error occurred. Reference: &quot; + cid, cid));
     }
 
     private static String correlationId() {
-<span class="fc" id="L176">        String cid = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
-<span class="fc bfc" id="L177" title="All 2 branches covered.">        return cid != null ? cid : &quot;n/a&quot;;</span>
+<span class="fc" id="L177">        String cid = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        return cid != null ? cid : &quot;n/a&quot;;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

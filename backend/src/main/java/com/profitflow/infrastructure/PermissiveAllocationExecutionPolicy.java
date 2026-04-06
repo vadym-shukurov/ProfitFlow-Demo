@@ -3,6 +3,8 @@ package com.profitflow.infrastructure;
 import com.profitflow.application.port.out.AllocationExecutionPolicyPort;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 /**
  * Default SoD gate: no extra approval step (suitable for demos and early production).
  */
@@ -11,6 +13,7 @@ public class PermissiveAllocationExecutionPolicy implements AllocationExecutionP
 
     @Override
     public void assertMayExecute(String username) {
+        Objects.requireNonNull(username, "username");
         // Extension point: consult approval workflow, change tickets, etc.
     }
 }

@@ -3,15 +3,18 @@
 import com.profitflow.application.port.out.AllocationExecutionPolicyPort;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 /**
  * Default SoD gate: no extra approval step (suitable for demos and early production).
  */
 @Component
-<span class="fc" id="L10">public class PermissiveAllocationExecutionPolicy implements AllocationExecutionPolicyPort {</span>
+<span class="fc" id="L12">public class PermissiveAllocationExecutionPolicy implements AllocationExecutionPolicyPort {</span>
 
     @Override
     public void assertMayExecute(String username) {
+<span class="fc" id="L16">        Objects.requireNonNull(username, &quot;username&quot;);</span>
         // Extension point: consult approval workflow, change tickets, etc.
-<span class="fc" id="L15">    }</span>
+<span class="fc" id="L18">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

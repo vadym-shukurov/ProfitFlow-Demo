@@ -2,7 +2,6 @@ package com.profitflow.security.ratelimit;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -55,8 +54,10 @@ public class InMemoryRateLimiterBackend implements RateLimiterBackend {
     }
 
     private static Bucket buildBucket(long capacity, Duration refillPeriod) {
-        Bandwidth limit = Bandwidth.classic(capacity,
-                Refill.intervally(capacity, refillPeriod));
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(capacity)
+                .refillGreedy(capacity, refillPeriod)
+                .build();
         return Bucket.builder().addLimit(limit).build();
     }
 }

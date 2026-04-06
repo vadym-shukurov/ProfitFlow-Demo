@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick, flush, discardPeriodicTasks } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import {
   HttpClient,
   HttpErrorResponse,

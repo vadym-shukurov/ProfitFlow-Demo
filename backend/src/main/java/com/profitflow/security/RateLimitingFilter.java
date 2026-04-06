@@ -52,16 +52,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (rateLimiterBackend.tryConsume(ip, path)) {
             chain.doFilter(request, response);
         } else {
-            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
+            String correlationId = sanitizeForLogs(MDC.get(CorrelationIdFilter.MDC_KEY));
             log.warn("Rate limit exceeded for IP={} path={} correlationId={}",
                     ip, path, correlationId);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setHeader("Retry-After", "60");
-            String cid = correlationId != null ? correlationId : "n/a";
             response.getWriter().write(
                     "{\"message\":\"Too many requests — please wait before retrying.\","
-                    + "\"correlationId\":\"" + cid + "\"}");
+                    + "\"correlationId\":\"" + correlationId + "\"}");
         }
     }
 

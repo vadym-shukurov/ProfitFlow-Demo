@@ -22,10 +22,13 @@ public sealed interface FlowNode permits ResourceNode, ActivityNode, ProductNode
      * protocol that needs a type tag (e.g. the REST {@code fromKind/toKind} fields).
      */
     default FlowNodeKind kind() {
-        return switch (this) {
-            case ResourceNode ignored -> FlowNodeKind.RESOURCE;
-            case ActivityNode ignored -> FlowNodeKind.ACTIVITY;
-            case ProductNode  ignored -> FlowNodeKind.PRODUCT;
-        };
+        // Java 21 doesn't support unnamed pattern variables in switch; keep this explicit.
+        if (this instanceof ResourceNode) {
+            return FlowNodeKind.RESOURCE;
+        }
+        if (this instanceof ActivityNode) {
+            return FlowNodeKind.ACTIVITY;
+        }
+        return FlowNodeKind.PRODUCT;
     }
 }

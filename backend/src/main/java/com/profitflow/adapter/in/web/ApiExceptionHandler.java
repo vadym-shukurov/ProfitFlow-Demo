@@ -130,6 +130,7 @@ public class ApiExceptionHandler {
     /** Returns 400 for malformed JSON bodies (syntax errors, wrong type). */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> unreadableBody(HttpMessageNotReadableException ex) {
+        log.debug("Malformed JSON request [correlationId={}]: {}", correlationId(), ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ApiErrorResponse("Malformed JSON request body.", correlationId()));

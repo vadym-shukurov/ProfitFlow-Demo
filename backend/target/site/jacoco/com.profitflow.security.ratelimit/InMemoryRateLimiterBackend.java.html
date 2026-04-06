@@ -2,7 +2,6 @@
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -23,41 +22,43 @@ public class InMemoryRateLimiterBackend implements RateLimiterBackend {
     private final long runRateLimit;
     private final long generalRateLimit;
 
-<span class="fc" id="L26">    private final Map&lt;String, Bucket&gt; authBuckets    = new ConcurrentHashMap&lt;&gt;();</span>
-<span class="fc" id="L27">    private final Map&lt;String, Bucket&gt; runBuckets     = new ConcurrentHashMap&lt;&gt;();</span>
-<span class="fc" id="L28">    private final Map&lt;String, Bucket&gt; generalBuckets = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L25">    private final Map&lt;String, Bucket&gt; authBuckets    = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L26">    private final Map&lt;String, Bucket&gt; runBuckets     = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L27">    private final Map&lt;String, Bucket&gt; generalBuckets = new ConcurrentHashMap&lt;&gt;();</span>
 
     public InMemoryRateLimiterBackend(
             @Value(&quot;${profitflow.security.rate-limit.auth:10}&quot;)    long authRateLimit,
             @Value(&quot;${profitflow.security.rate-limit.run:5}&quot;)      long runRateLimit,
-<span class="fc" id="L33">            @Value(&quot;${profitflow.security.rate-limit.general:120}&quot;) long generalRateLimit) {</span>
-<span class="fc" id="L34">        this.authRateLimit    = authRateLimit;</span>
-<span class="fc" id="L35">        this.runRateLimit     = runRateLimit;</span>
-<span class="fc" id="L36">        this.generalRateLimit = generalRateLimit;</span>
-<span class="fc" id="L37">    }</span>
+<span class="fc" id="L32">            @Value(&quot;${profitflow.security.rate-limit.general:120}&quot;) long generalRateLimit) {</span>
+<span class="fc" id="L33">        this.authRateLimit    = authRateLimit;</span>
+<span class="fc" id="L34">        this.runRateLimit     = runRateLimit;</span>
+<span class="fc" id="L35">        this.generalRateLimit = generalRateLimit;</span>
+<span class="fc" id="L36">    }</span>
 
     @Override
     public boolean tryConsume(String clientIp, String path) {
-<span class="fc" id="L41">        return selectBucket(clientIp, path).tryConsume(1);</span>
+<span class="fc" id="L40">        return selectBucket(clientIp, path).tryConsume(1);</span>
     }
 
     private Bucket selectBucket(String ip, String path) {
-<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (path.startsWith(&quot;/api/v1/auth/&quot;)) {</span>
-<span class="fc" id="L46">            return authBuckets.computeIfAbsent(ip,</span>
-<span class="fc" id="L47">                    k -&gt; buildBucket(authRateLimit, Duration.ofMinutes(1)));</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (path.startsWith(&quot;/api/v1/auth/&quot;)) {</span>
+<span class="fc" id="L45">            return authBuckets.computeIfAbsent(ip,</span>
+<span class="fc" id="L46">                    k -&gt; buildBucket(authRateLimit, Duration.ofMinutes(1)));</span>
         }
-<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (path.equals(&quot;/api/v1/allocations/run&quot;)) {</span>
-<span class="fc" id="L50">            return runBuckets.computeIfAbsent(ip,</span>
-<span class="fc" id="L51">                    k -&gt; buildBucket(runRateLimit, Duration.ofMinutes(1)));</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        if (path.equals(&quot;/api/v1/allocations/run&quot;)) {</span>
+<span class="fc" id="L49">            return runBuckets.computeIfAbsent(ip,</span>
+<span class="fc" id="L50">                    k -&gt; buildBucket(runRateLimit, Duration.ofMinutes(1)));</span>
         }
-<span class="fc" id="L53">        return generalBuckets.computeIfAbsent(ip,</span>
-<span class="fc" id="L54">                k -&gt; buildBucket(generalRateLimit, Duration.ofMinutes(1)));</span>
+<span class="fc" id="L52">        return generalBuckets.computeIfAbsent(ip,</span>
+<span class="fc" id="L53">                k -&gt; buildBucket(generalRateLimit, Duration.ofMinutes(1)));</span>
     }
 
     private static Bucket buildBucket(long capacity, Duration refillPeriod) {
-<span class="fc" id="L58">        Bandwidth limit = Bandwidth.classic(capacity,</span>
-<span class="fc" id="L59">                Refill.intervally(capacity, refillPeriod));</span>
-<span class="fc" id="L60">        return Bucket.builder().addLimit(limit).build();</span>
+<span class="fc" id="L57">        Bandwidth limit = Bandwidth.builder()</span>
+<span class="fc" id="L58">                .capacity(capacity)</span>
+<span class="fc" id="L59">                .refillGreedy(capacity, refillPeriod)</span>
+<span class="fc" id="L60">                .build();</span>
+<span class="fc" id="L61">        return Bucket.builder().addLimit(limit).build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

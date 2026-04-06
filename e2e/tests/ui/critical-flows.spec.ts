@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-import { e2eAdminPassword, e2eAdminUser } from '../fixtures/credentials';
 import { loginAsAdmin } from '../helpers/login';
 
 /**
