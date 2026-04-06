@@ -414,6 +414,14 @@ jobs:
           sbom: true
           load: true
 
+      # Runtime evidence for debugging OS CVEs (e.g. libpng): appears in job logs.
+      - name: Runtime evidence — libpng packages (backend, PR image)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "=== dpkg libpng-related (profitflow-api:ci) ==="
+          docker run --rm --user root --entrypoint bash profitflow-api:ci \
+            -c 'dpkg -l "libpng*" 2>/dev/null || dpkg -l | grep -iE "^ii.*png" || true'
+
       # Build backend image (push/GHCR) — push only fully-qualified GHCR tags
       - name: Build backend image (push/GHCR)
         if: github.event_name != 'pull_request'
@@ -430,6 +438,15 @@ jobs:
           cache-to:   type=gha,scope=backend,mode=max
           provenance: true
           sbom: true
+
+      - name: Runtime evidence — libpng packages (backend, GHCR image)
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE="${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}"
+          echo "=== dpkg libpng-related ($IMAGE) ==="
+          docker pull "$IMAGE"
+          docker run --rm --user root --entrypoint bash "$IMAGE" \
+            -c 'dpkg -l "libpng*" 2>/dev/null || dpkg -l | grep -iE "^ii.*png" || true'
 
       # Build frontend image (PR/local) — tag only locally to avoid pushing to Docker Hub
       - name: Build frontend image (PR/local)

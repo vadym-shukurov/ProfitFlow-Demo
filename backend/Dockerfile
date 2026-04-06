@@ -1,8 +1,7 @@
 # ── Stage 1: dependency cache ────────────────────────────────────────────────
 # Pre-download all Maven dependencies in a separate layer so that subsequent
 # builds that only change source code do NOT re-download the internet.
-# Use the Debian-based Maven image (not Alpine) so OS CVE reports match the
-# distroless Debian 12 runtime and we avoid apk/openssl/libpng noise in SBOMs.
+# Use the Debian-based Maven image (not Alpine) to avoid apk-only OS noise in SBOMs.
 FROM maven:3.9-eclipse-temurin-21 AS deps
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
@@ -18,11 +17,16 @@ COPY src ./src
 RUN mvn package -DskipTests -B -q
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
-# Distroless Java runtime (Debian 12) — removes shell/BusyBox/coreutils and the
-# package manager, significantly reducing OS-package CVEs and attack surface.
-# Google rebuilds this image when Debian security updates land; rebuild the app
-# image after base refreshes to pick up fixes (e.g. libpng in bookworm).
-FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
+# Distroless Debian 12 bundles fixed .deb sets with no apt — it can lag
+# bookworm-security (e.g. libpng16-16 deb12u3 vs deb12u4) and fail Grype. Use
+# Eclipse Temurin on Ubuntu Noble so security updates apply at image build time.
+FROM eclipse-temurin:21-jre-noble AS runtime
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 65532 nonroot \
+    && useradd --uid 65532 --gid 65532 --shell /usr/sbin/nologin --create-home nonroot
 
 WORKDIR /app
 
