@@ -2,6 +2,9 @@
 .DS_Store
 Thumbs.db
 
+# Cursor / local agent debug logs (do not commit)
+.cursor/debug*.log
+
 # IDEs
 .idea/
 *.iml
