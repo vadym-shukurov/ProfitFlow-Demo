@@ -1,6 +1,6 @@
 import { HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
-import { timer } from 'rxjs';
-import { retry, switchMap } from 'rxjs/operators';
+import { throwError, timer } from 'rxjs';
+import { mergeMap, retryWhen } from 'rxjs/operators';
 
 /**
  * Automatic retry interceptor with exponential back-off.
@@ -34,20 +34,23 @@ export const retryInterceptor: HttpInterceptorFn = (
   }
 
   return next(req).pipe(
-    retry({
-      count: 3,
-      delay: (error, attempt) => {
-        if (!isRetryableError(error)) {
-          throw error;
-        }
-        const baseMs = 500 * Math.pow(2, attempt - 1);
-        // Deterministic delays keep retry behavior testable and debuggable.
-        // If jitter is desired in production, add it at the server/LB level or behind
-        // a feature flag so it doesn't introduce flaky client retries.
-        return timer(baseMs);
-      },
-      resetOnSuccess: true,
-    })
+    retryWhen(errors =>
+      errors.pipe(
+        mergeMap((error: any, i) => {
+          if (!isRetryableError(error)) {
+            return throwError(() => error);
+          }
+
+          const attempt = i + 1; // 1..n
+          if (attempt > 3) {
+            return throwError(() => error);
+          }
+
+          const baseMs = 500 * Math.pow(2, attempt - 1);
+          return timer(baseMs);
+        }),
+      ),
+    ),
   );
 };
 

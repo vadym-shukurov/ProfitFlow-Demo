@@ -169,7 +169,7 @@ describe('retryInterceptor', () => {
 
     // Advance time beyond the full backoff window to prove a 5th request never occurs.
     tick(10_000);
-    expect(() => httpMock.expectNone('/api/v1/resource-costs')).not.toThrow();
+    expect(httpMock.match('/api/v1/resource-costs').length).toBe(0);
     discardPeriodicTasks();
   }));
 });
