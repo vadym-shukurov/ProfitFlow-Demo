@@ -45,7 +45,7 @@ profitflow-api,com.profitflow.security,CorrelationIdFilter,0,44,0,6,0,13,0,7,0,4
 profitflow-api,com.profitflow.security,RefreshTokenService.RotationResult,0,31,0,0,0,3,0,3,0,3
 profitflow-api,com.profitflow.security,AuditService,0,139,1,7,0,35,1,10,0,7
 profitflow-api,com.profitflow.security,RateLimitingFilter,7,189,15,35,1,36,14,18,0,7
-profitflow-api,com.profitflow.security,AuditAspect,1,108,2,12,0,29,2,9,0,4
+profitflow-api,com.profitflow.security,AuditAspect,12,115,4,14,3,31,4,9,0,4
 profitflow-api,com.profitflow.security,AuditService.AuditWriteException,0,5,0,0,0,2,0,1,0,1
 profitflow-api,com.profitflow.security,TokenRevocationService,0,108,0,12,0,30,0,11,0,5
 profitflow-api,com.profitflow.security,JwtTokenService,2,62,0,0,0,21,1,2,1,2

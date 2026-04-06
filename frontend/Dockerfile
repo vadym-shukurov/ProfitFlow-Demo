@@ -3,6 +3,8 @@
 # node:20-alpine is ~55 MB vs ~380 MB for node:20.
 FROM node:20-alpine AS builder
 
+RUN apk upgrade --no-cache
+
 WORKDIR /app
 
 # Copy lock file first to leverage Docker layer caching.
@@ -22,6 +24,8 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
 # Temporarily escalate to root to modify the filesystem (the base image defaults to a non-root user).
 USER root
+
+RUN apk upgrade --no-cache
 
 # Prepare writable web root (nginx.conf points here).
 RUN mkdir -p /tmp/nginx/html && chown -R nginx:nginx /tmp/nginx

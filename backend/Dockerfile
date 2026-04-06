@@ -1,9 +1,11 @@
 # ── Stage 1: dependency cache ────────────────────────────────────────────────
 # Pre-download all Maven dependencies in a separate layer so that subsequent
 # builds that only change source code do NOT re-download the internet.
-FROM maven:3.9-eclipse-temurin-21-alpine AS deps
-# Patch Alpine packages in build stages too (some scanners surface transitive base layers).
-RUN apk update && apk upgrade --no-cache
+# Use the Debian-based Maven image (not Alpine) so OS CVE reports match the
+# distroless Debian 12 runtime and we avoid apk/openssl/libpng noise in SBOMs.
+FROM maven:3.9-eclipse-temurin-21 AS deps
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B -q
@@ -18,6 +20,8 @@ RUN mvn package -DskipTests -B -q
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
 # Distroless Java runtime (Debian 12) — removes shell/BusyBox/coreutils and the
 # package manager, significantly reducing OS-package CVEs and attack surface.
+# Google rebuilds this image when Debian security updates land; rebuild the app
+# image after base refreshes to pick up fixes (e.g. libpng in bookworm).
 FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
 
 WORKDIR /app

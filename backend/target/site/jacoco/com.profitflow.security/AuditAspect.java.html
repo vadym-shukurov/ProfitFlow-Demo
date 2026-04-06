@@ -92,14 +92,29 @@ public class AuditAspect {
 <span class="fc" id="L92">            return null;</span>
         }
         try {
-<span class="fc" id="L95">            Expression expr  = SPEL.parseExpression(spel);</span>
-<span class="fc" id="L96">            StandardEvaluationContext ctx = new StandardEvaluationContext(result);</span>
-<span class="fc" id="L97">            ctx.setVariable(&quot;result&quot;, result);</span>
-<span class="fc" id="L98">            Object value = expr.getValue(ctx);</span>
-<span class="pc bpc" id="L99" title="1 of 2 branches missed.">            return value != null ? value.toString() : null;</span>
-<span class="fc" id="L100">        } catch (Exception ex) {</span>
-<span class="fc" id="L101">            log.warn(&quot;Failed to evaluate entityIdSpEL='{}': {}&quot;, spel, ex.getMessage());</span>
-<span class="fc" id="L102">            return null;</span>
+            // Treat SpEL as potentially unsafe: we support only read-only property paths, and
+            // intentionally reject method calls (e.g. `id()`), type references (T(...)),
+            // constructors (`new ...`), and other expression features.
+            //
+            // For compatibility, allow `#result.&lt;path&gt;` and normalize it to `&lt;path&gt;`.
+<span class="fc" id="L100">            String normalized = spel.strip();</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            if (normalized.startsWith(&quot;#result.&quot;)) {</span>
+<span class="nc" id="L102">                normalized = normalized.substring(&quot;#result.&quot;.length());</span>
+            }
+
+            // Only allow property paths like &quot;id&quot; or &quot;user.id&quot;.
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            if (!normalized.matches(&quot;^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$&quot;)) {</span>
+<span class="nc" id="L107">                log.warn(&quot;Rejected non-property entityIdSpEL='{}'&quot;, spel);</span>
+<span class="nc" id="L108">                return null;</span>
+            }
+
+<span class="fc" id="L111">            Expression expr  = SPEL.parseExpression(normalized);</span>
+<span class="fc" id="L112">            StandardEvaluationContext ctx = new StandardEvaluationContext(result);</span>
+<span class="fc" id="L113">            Object value = expr.getValue(ctx);</span>
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">            return value != null ? value.toString() : null;</span>
+<span class="fc" id="L115">        } catch (Exception ex) {</span>
+<span class="fc" id="L116">            log.warn(&quot;Failed to evaluate entityIdSpEL='{}': {}&quot;, spel, ex.getMessage());</span>
+<span class="fc" id="L117">            return null;</span>
         }
     }
 }

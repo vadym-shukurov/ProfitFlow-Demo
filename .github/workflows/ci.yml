@@ -405,6 +405,7 @@ jobs:
           context: backend
           file: backend/Dockerfile
           push: false
+          pull: true
           tags: profitflow-api:ci
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha,scope=backend
@@ -422,6 +423,7 @@ jobs:
           context: backend
           file: backend/Dockerfile
           push: true
+          pull: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha,scope=backend
@@ -438,6 +440,7 @@ jobs:
           context: frontend
           file: frontend/Dockerfile
           push: false
+          pull: true
           tags: profitflow-ui:ci
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha,scope=frontend
@@ -455,6 +458,7 @@ jobs:
           context: frontend
           file: frontend/Dockerfile
           push: true
+          pull: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha,scope=frontend
