@@ -176,7 +176,7 @@ jobs:
 
       # Post coverage summary as a PR comment (requires pull_request trigger)
       - name: JaCoCo PR comment
-        uses: madrapps/jacoco-report@v1.7.1
+        uses: madrapps/jacoco-report@v1.7.2
         if: github.event_name == 'pull_request'
         with:
           paths: backend/target/site/jacoco/jacoco.xml
@@ -283,7 +283,7 @@ jobs:
         # Ensure SARIF uploads even when vulnerabilities are found.
         continue-on-error: true
         # Pin to specific commit SHA for supply-chain security — do not use @master
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.29.0
         with:
           scan-type: fs
           scan-ref: .
@@ -410,7 +410,7 @@ jobs:
       # Scan the built images for OS-level CVEs before pushing
       - name: Trivy image scan — backend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.29.0
         with:
           image-ref: profitflow-api:ci
           format: sarif
@@ -421,7 +421,7 @@ jobs:
 
       - name: Trivy image scan — backend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.29.0
         with:
           # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
           # (which tags with a short SHA by default).
@@ -434,7 +434,7 @@ jobs:
 
       - name: Trivy image scan — frontend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.29.0
         with:
           image-ref: profitflow-ui:ci
           format: sarif
@@ -445,7 +445,7 @@ jobs:
 
       - name: Trivy image scan — frontend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.29.0
         with:
           # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
           image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}

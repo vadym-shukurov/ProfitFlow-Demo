@@ -259,7 +259,7 @@ jobs:
 
       # Pinned to a specific commit SHA for supply-chain security (no floating @master tag)
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@76071ef0d7aad71c4a07d374f76de96e85dfbfbd
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
           format: sarif
