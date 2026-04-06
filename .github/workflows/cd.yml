@@ -96,12 +96,15 @@ jobs:
     steps:
       - name: Determine image tag
         id: tag
+        env:
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag || '' }}
+          RESOLVED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
-          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
-            echo "value=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [[ -n "${INPUT_IMAGE_TAG}" ]]; then
+            echo "value=${INPUT_IMAGE_TAG}" >> "$GITHUB_OUTPUT"
           else
             # Use the SHA of the triggering commit for exact traceability
-            SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+            SHA="${RESOLVED_SHA}"
             echo "value=sha-${SHA:0:7}" >> "$GITHUB_OUTPUT"
           fi
 

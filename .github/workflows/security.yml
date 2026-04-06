@@ -76,6 +76,9 @@ jobs:
           # NVD availability is occasionally flaky (rate limits / transient upstream issues).
           # We retry with exponential-ish backoff; if we have cached CVE data, we fall back
           # to a "no update" run so the scan remains actionable without breaking PRs.
+          #
+          # NOTE: GitHub Actions invokes bash with `errexit`; a bare failing `mvn` aborts the
+          # whole script before retries. Use `&&`/`||` or `if` so failures stay inside branches.
           base_cmd=(mvn -Powasp-check \
             -DskipTests \
             -Djacoco.skip=true \
@@ -88,7 +91,10 @@ jobs:
 
           attempt() {
             echo "Running OWASP Dependency-Check (attempt $1)..."
-            "${base_cmd[@]}"
+            if "${base_cmd[@]}"; then
+              return 0
+            fi
+            return 1
           }
 
           if attempt 1; then
@@ -108,8 +114,9 @@ jobs:
           if [[ -d "${HOME}/.m2/dependency-check-data" ]] && \
              [[ -n "$(ls -A "${HOME}/.m2/dependency-check-data" 2>/dev/null)" ]]; then
             echo "Retrying with cached DB only (autoUpdate=false)."
-            "${base_cmd[@]}" -Ddependency-check.autoUpdate=false
-            exit 0
+            if "${base_cmd[@]}" -Ddependency-check.autoUpdate=false; then
+              exit 0
+            fi
           fi
 
           echo "::warning::OWASP Dependency-Check failed due to NVD update outage (403/404) and no cached DB exists."

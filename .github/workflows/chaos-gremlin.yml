@@ -18,8 +18,10 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Print safe checklist (no secrets)
+        env:
+          ENVIRONMENT_LABEL: ${{ github.event.inputs.environment }}
         run: |
-          echo "Environment (label): ${{ github.event.inputs.environment }}"
+          echo "Environment (label): ${ENVIRONMENT_LABEL}"
           echo "See docs/testing/CHAOS.md for Gremlin experiments and secret names."
           echo "This workflow does not call Gremlin APIs unless you extend it with"
           echo "authenticated steps and approved targets."

@@ -16,48 +16,17 @@ COPY src ./src
 RUN mvn package -DskipTests -B -q
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
-# Minimal JRE image — no JDK, no Maven, no build tooling.
-# eclipse-temurin:21-jre-alpine is ~90 MB vs ~300 MB for the full JDK image.
-FROM eclipse-temurin:21-jre-alpine AS runtime
-
-# Base images can lag Alpine security updates; refresh installed packages from apk repos
-# so Grype/OSV does not flag zlib (e.g. CVE-2026-27171), libpng, expat, gnutls, openssl, …
-RUN set -eux; \
-    apk update; \
-    apk upgrade --no-cache; \
-    for _p in zlib libpng expat gnutls openssl libssl3 libcrypto3; do \
-      apk upgrade --no-cache "$_p" || true; \
-    done; \
-    apk add --no-cache --upgrade \
-      zlib \
-      libpng \
-      expat \
-      gnutls \
-      openssl \
-      libssl3 \
-      libcrypto3
-
-# Security: run as non-root with a dedicated system account.
-# The 'profitflow' group/user is created here so the UID is consistent across
-# rebuilds (important for file-permission audits in finance environments).
-RUN addgroup -S profitflow && adduser -S profitflow -G profitflow
+# Distroless Java runtime (Debian 12) — removes shell/BusyBox/coreutils and the
+# package manager, significantly reducing OS-package CVEs and attack surface.
+FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
 
 WORKDIR /app
 
 # Copy only the fat JAR — no source, no test classes, no POM.
-COPY --from=builder --chown=profitflow:profitflow \
+COPY --from=builder --chown=nonroot:nonroot \
      /build/target/profitflow-api-*.jar app.jar
 
-# Drop all default capabilities; the JVM only needs standard network sockets.
-# --security-opt no-new-privileges is set at orchestrator level (k8s / compose).
-USER profitflow
-
 EXPOSE 8080
-
-# Healthcheck used by Docker Compose, Kubernetes readiness probes,
-# and the smoke-test step in the CD pipeline.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
 
 # JVM tuning for containers:
 #   -XX:+UseContainerSupport          — respect cgroup CPU/memory limits

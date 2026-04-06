@@ -147,15 +147,16 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/index.html"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/index.html"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
     ports:
-      - "0.0.0.0:80:80"      # Public HTTP (TLS terminated upstream by load balancer)
+      # Container serves on 8080 (unprivileged nginx); publish as host :80
+      - "0.0.0.0:80:8080"    # Public HTTP (TLS terminated upstream by load balancer)
     cap_drop: [ALL]
-    cap_add: [NET_BIND_SERVICE, CHOWN, SETGID, SETUID]
+    cap_add: [CHOWN, SETGID, SETUID]
     security_opt: ["no-new-privileges:true"]
     read_only: true
     tmpfs:

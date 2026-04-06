@@ -94,8 +94,8 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.cfg.outputs.skip == 'false'
-        # v6+ fixes GHSA-5xq9-5g24-4g6f (argument injection on Windows) and related v5 advisories; use JS arg parser (see action README).
-        uses: SonarSource/sonarqube-scan-action@v7.1.0
+        # Pinned to v7.1.0 commit (not floating v5/v6) — fixes GHSA-f79p-9c5r-xg88 / GHSA-5xq9-5g24-4g6f; v6+ uses JS arg parser (see action README).
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:

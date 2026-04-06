@@ -17,23 +17,8 @@ COPY . .
 RUN npm run build -- --configuration=production
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
-# Minimal nginx image — no Node, no npm, no source code.
-# nginx:1.27-alpine is ~10 MB.
-FROM nginx:1.27-alpine AS runtime
-
-# Refresh Alpine packages — base tag may lag security fixes (openssl, expat, libpng, curl, …).
-RUN set -eux; \
-    apk update; \
-    apk upgrade --no-cache; \
-    apk add --no-cache --upgrade \
-      zlib \
-      libpng \
-      expat \
-      openssl \
-      libssl3 \
-      libcrypto3 \
-      curl \
-      libcurl
+# Official unprivileged nginx — runs as non-root; listens on 8080 (see nginx.conf).
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
 # Security: remove default nginx pages that could reveal version info.
 RUN rm -rf /usr/share/nginx/html/*
@@ -45,12 +30,11 @@ COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
 # Copy the hardened nginx configuration.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Security: nginx master process runs as root (binds port 80) but worker
-# processes run as the 'nginx' user — standard nginx security model.
-# For rootless deployments, switch to port 8080 and run as a named user.
-EXPOSE 80
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost/index.html || exit 1
+    CMD wget -qO- http://127.0.0.1:8080/index.html || exit 1
+
+USER nginx
 
 CMD ["nginx", "-g", "daemon off;"]
