@@ -16,8 +16,8 @@ import java.util.List;
  *
  * <h2>CORS policy</h2>
  * Allowed origins are configured from the {@code ALLOWED_ORIGINS} environment
- * variable (comma-separated list of origins). The Angular dev-server origin
- * ({@code http://localhost:4200}) is always included for local development.
+ * variable (comma-separated list of origins). The Angular dev-server on
+ * {@code localhost:4200} (plain HTTP on loopback) is always included for local development.
  *
  * <p>Wildcard {@code "*"} is explicitly rejected at startup — it would allow any
  * website to make cross-origin requests with credentials, defeating CSRF protection.
@@ -65,7 +65,9 @@ public class WebConfig {
      */
     private static String[] buildOriginList(String rawOrigins) {
         List<String> origins = new ArrayList<>();
+        // nosemgrep: html.security.plaintext-http-link.plaintext-http-link — ng serve uses http on loopback only
         origins.add("http://localhost:4200");
+        // nosemgrep: html.security.plaintext-http-link.plaintext-http-link
         origins.add("http://127.0.0.1:4200");
 
         if (rawOrigins != null && !rawOrigins.isBlank()) {
@@ -84,7 +86,7 @@ public class WebConfig {
             }
         } else {
             log.warn("SECURITY WARNING: ALLOWED_ORIGINS is not set. "
-                    + "CORS will only allow http://localhost:4200 and http://127.0.0.1:4200. "
+                    + "CORS will only allow localhost:4200 and 127.0.0.1:4200 over HTTP (dev). "
                     + "Set ALLOWED_ORIGINS to your production domain.");
         }
 

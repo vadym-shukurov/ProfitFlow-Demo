@@ -7,3 +7,9 @@
 **/*.md
 docs/**
 
+# Maven output — JaCoCo/Surefire HTML & XML embed http:// (W3C DTD, jacoco.org, xsi namespace).
+backend/target/
+frontend/dist/
+frontend/node_modules/
+e2e/node_modules/
+

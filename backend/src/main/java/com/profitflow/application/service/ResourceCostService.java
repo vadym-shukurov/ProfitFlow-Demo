@@ -218,7 +218,7 @@ public class ResourceCostService implements ResourceCostUseCase {
      * interpret as formula entry points ({@code = + - @ \t \r}).
      *
      * <p>Without this defence, an attacker can craft a label like
-     * {@code =HYPERLINK("http://evil.com","Click me")} that becomes an active
+     * {@code =HYPERLINK("https://example.com","Click me")} that becomes an active
      * formula when the exported CSV is opened in a spreadsheet.
      */
     static String stripCsvInjectionChars(String value) {
