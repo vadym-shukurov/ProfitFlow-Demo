@@ -3,9 +3,9 @@
 # node:20-alpine is ~55 MB vs ~380 MB for node:20.
 FROM node:20-alpine AS builder
 
-# Alpine OS patches (e.g. libpng): refresh index, upgrade, then pin patched libpng when available.
-RUN apk update && apk upgrade --no-cache \
-    && (apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng)
+# Alpine OS patches (e.g. libpng): apk upgrade, then pin libpng when the mirror provides it.
+RUN apk update && apk upgrade --no-cache
+RUN apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng
 
 WORKDIR /app
 
@@ -27,8 +27,8 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 # Temporarily escalate to root to modify the filesystem (the base image defaults to a non-root user).
 USER root
 
-RUN apk update && apk upgrade --no-cache \
-    && (apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng)
+RUN apk update && apk upgrade --no-cache
+RUN apk add --no-cache libpng=1.6.56-r0 || apk add --no-cache -u libpng
 
 # Prepare writable web root (nginx.conf points here).
 RUN mkdir -p /tmp/nginx/html && chown -R nginx:nginx /tmp/nginx

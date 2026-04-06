@@ -24,7 +24,10 @@ FROM eclipse-temurin:21-jre-noble AS runtime
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
-    && pkgs=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -E '^libpng' || true) \
+    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && pkgs=$(dpkg-query -W -f='${Package}\n' 2>/dev/null \
+         | grep -E '^(libpng|libssl|openssl)' || true) \
     && if [ -n "$pkgs" ]; then \
          DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade $pkgs; \
        fi \
