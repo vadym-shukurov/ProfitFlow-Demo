@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CorrelationIdFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">CorrelationIdFilter.java</span></div><h1>CorrelationIdFilter.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+/**
+ * Assigns a unique correlation ID to every HTTP request and propagates it through:
+ * &lt;ol&gt;
+ *   &lt;li&gt;SLF4J MDC — every log line during this request includes
+ *       {@code correlationId=&lt;uuid&gt;}&lt;/li&gt;
+ *   &lt;li&gt;{@code X-Correlation-Id} response header — clients can quote this ID
+ *       in support tickets to allow exact log lookup&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;If the inbound request carries a trusted {@code X-Correlation-Id} header
+ * (e.g. set by an upstream service mesh or load balancer) that value is re-used
+ * after validation. An invalid or absent header causes a new server-generated ID
+ * to be issued, preventing log-forging and log-injection attacks.
+ *
+ * &lt;h2&gt;Validation rules for inbound correlation IDs&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;Max length: {@value #MAX_CID_LENGTH} characters&lt;/li&gt;
+ *   &lt;li&gt;Allowed characters: {@code A-Z a-z 0-9 - _} (alphanumeric and hyphen/underscore)&lt;/li&gt;
+ * &lt;/ul&gt;
+ * Any value that fails these checks is silently replaced with a fresh server-generated UUID.
+ */
+@Component
+<span class="fc" id="L38">public class CorrelationIdFilter extends OncePerRequestFilter {</span>
+
+    public static final String HEADER_NAME = &quot;X-Correlation-Id&quot;;
+    public static final String MDC_KEY     = &quot;correlationId&quot;;
+
+    /** Maximum accepted length for a client-supplied correlation ID. */
+    static final int MAX_CID_LENGTH = 128;
+
+    /** Only alphanumeric characters plus hyphens and underscores are permitted. */
+<span class="fc" id="L47">    private static final Pattern SAFE_CID = Pattern.compile(&quot;[A-Za-z0-9\\-_]{1,&quot; + MAX_CID_LENGTH + &quot;}&quot;);</span>
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain chain) throws ServletException, IOException {
+
+<span class="fc" id="L55">        String correlationId = sanitize(request.getHeader(HEADER_NAME));</span>
+
+<span class="fc" id="L57">        MDC.put(MDC_KEY, correlationId);</span>
+<span class="fc" id="L58">        response.setHeader(HEADER_NAME, correlationId);</span>
+
+        try {
+<span class="fc" id="L61">            chain.doFilter(request, response);</span>
+        } finally {
+<span class="fc" id="L63">            MDC.remove(MDC_KEY);</span>
+        }
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Validates the candidate correlation ID from the inbound request.
+     * Returns the value unchanged if it passes; returns a fresh UUID otherwise.
+     *
+     * @param candidate the raw header value, may be null
+     * @return a safe correlation ID string
+     */
+    static String sanitize(String candidate) {
+<span class="pc bpc" id="L75" title="3 of 4 branches missed.">        if (candidate == null || candidate.isBlank()) {</span>
+<span class="fc" id="L76">            return UUID.randomUUID().toString();</span>
+        }
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (SAFE_CID.matcher(candidate).matches()) {</span>
+<span class="nc" id="L79">            return candidate;</span>
+        }
+        // Client-supplied ID failed validation — generate a server-side ID
+<span class="nc" id="L82">        return UUID.randomUUID().toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

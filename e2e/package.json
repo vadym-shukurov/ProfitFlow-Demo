@@ -1,0 +1,21 @@
+{
+  "name": "profitflow-e2e",
+  "private": true,
+  "description": "Playwright E2E + API probes, Artillery load smoke, Lighthouse a11y — CI and local (see README).",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:api": "playwright test tests/api",
+    "test:ui": "playwright test tests/ui",
+    "report": "playwright show-report",
+    "artillery": "sh -c 'sed \"s|__API_TARGET__|${ARTILLERY_TARGET:-http://127.0.0.1:18080}|g\" artillery/probe.yml > /tmp/pf-artillery-probe.yml && artillery run /tmp/pf-artillery-probe.yml'",
+    "lhci": "lhci autorun --config=lighthouserc.cjs"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.14.0",
+    "@playwright/test": "^1.49.1",
+    "artillery": "^2.0.21",
+    "artillery-plugin-expect": "^2.8.0",
+    "typescript": "^5.4.5"
+  }
+}

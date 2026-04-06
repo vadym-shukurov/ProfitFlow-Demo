@@ -1,0 +1,87 @@
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: profitflow-postgres
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-profitflow}
+      POSTGRES_USER:     ${POSTGRES_USER:-profitflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD env var is required}
+    ports:
+      # Bind to loopback only — prevents the DB from being reachable on LAN/internet.
+      # Remote access should go through a bastion host or VPN, never a public port.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - profitflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-profitflow} -d ${POSTGRES_DB:-profitflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Drop all Linux capabilities except those required by Postgres.
+    # An attacker who escapes the container process cannot escalate privileges.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    read_only: false   # Postgres needs to write data; only /tmp and datadir are writable
+    tmpfs:
+      - /tmp
+
+  # ── Prometheus ──────────────────────────────────────────────────────────
+  # Scrapes /actuator/prometheus every 15 s.
+  # SLO alert rules live in monitoring/prometheus/alert-rules.yml.
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: profitflow-prometheus
+    ports:
+      - "127.0.0.1:9090:9090"   # Bind to loopback — not publicly exposed
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"     # Allows hot-reload via POST /-/reload
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # ── Grafana ─────────────────────────────────────────────────────────────
+  # Pre-provisioned with the ProfitFlow dashboard.
+  # Default login: admin / ${GF_ADMIN_PASSWORD:-profitflow}
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: profitflow-grafana
+    ports:
+      - "127.0.0.1:3001:3000"   # Bind to loopback; access via http://localhost:3001
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-profitflow}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN      # Grafana needs to write to its data directory
+      - SETUID
+      - SETGID
+
+volumes:
+  profitflow_pgdata:
+  prometheus_data:
+  grafana_data:

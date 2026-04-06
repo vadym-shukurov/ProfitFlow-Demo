@@ -1,0 +1,217 @@
+package com.profitflow.security;
+
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.RSAKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.Optional;
+
+/**
+ * Loads the RSA key pair used to sign and verify JWTs.
+ *
+ * <h2>Key source priority (highest first)</h2>
+ * <ol>
+ *   <li><strong>Environment variables</strong> — {@code RSA_PRIVATE_KEY_PEM} and
+ *       {@code RSA_PUBLIC_KEY_PEM}. Each must contain the full PEM text including
+ *       header/footer lines. <em>This is the required production path.</em></li>
+ *   <li><strong>Classpath files</strong> — {@code certs/private.pem} and
+ *       {@code certs/public.pem}. Used only in local development and tests.
+ *       A startup warning is emitted whenever classpath keys are used.</li>
+ * </ol>
+ *
+ * <h2>Production setup</h2>
+ * <pre>
+ * RSA_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----
+ * MIIEvAIBADANBgkqhkiG9w...
+ * -----END PRIVATE KEY-----"
+ *
+ * RSA_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----
+ * MIIBIjANBgkqhkiG9w0BAQ...
+ * -----END PUBLIC KEY-----"
+ * </pre>
+ *
+ * The keys must be injected via a secrets manager (Vault, AWS Secrets Manager,
+ * Kubernetes Secret) — never committed to source control.
+ *
+ * <h2>Key rotation (JWT {@code kid})</h2>
+ * <ul>
+ *   <li>{@code JWT_SIGNING_KEY_ID} — {@code kid} for newly issued tokens (default
+ *       {@code profitflow-1}).</li>
+ *   <li>{@code RSA_PREVIOUS_PUBLIC_KEY_PEM} — optional second public key still trusted
+ *       for verification until old tokens expire.</li>
+ *   <li>{@code RSA_PREVIOUS_KEY_ID} — {@code kid} for the previous key (default
+ *       {@code profitflow-0}).</li>
+ * </ul>
+ */
+@Component
+public class RsaKeyLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(RsaKeyLoader.class);
+
+    private static final String ENV_SIGNING_KEY_ID = "JWT_SIGNING_KEY_ID";
+    private static final String ENV_PREV_PUBLIC    = "RSA_PREVIOUS_PUBLIC_KEY_PEM";
+    private static final String ENV_PREV_KEY_ID    = "RSA_PREVIOUS_KEY_ID";
+
+    // Classpath fallback — active only in local dev / CI with local profile
+    private final RsaKeyProperties classpathKeys;
+
+    // Active profile — used to determine whether to block classpath keys
+    private final String activeProfiles;
+
+    /** {@code kid} claim for access tokens signed with the current private key. */
+    private final String configuredSigningKeyId;
+
+    public RsaKeyLoader(RsaKeyProperties classpathKeys,
+                        @Value("${spring.profiles.active:default}") String activeProfiles,
+                        @Value("${profitflow.security.jwt.signing-key-id:profitflow-1}")
+                                String configuredSigningKeyId) {
+        this.classpathKeys           = classpathKeys;
+        this.activeProfiles          = activeProfiles;
+        this.configuredSigningKeyId  = configuredSigningKeyId;
+    }
+
+    /**
+     * Key ID embedded in the JWT JWS header and matched against verification keys.
+     */
+    public String signingKeyId() {
+        String fromEnv = System.getenv(ENV_SIGNING_KEY_ID);
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return fromEnv.trim();
+        }
+        return configuredSigningKeyId;
+    }
+
+    /**
+     * Nimbus JWK for the encoder — includes private key + {@code kid}.
+     */
+    public RSAKey signingJwk() {
+        return new RSAKey.Builder(publicKey())
+                .privateKey(privateKey())
+                .keyID(signingKeyId())
+                .algorithm(JWSAlgorithm.RS256)
+                .build();
+    }
+
+    /**
+     * Optional previous public key still trusted during key rotation.
+     *
+     * @see FallbackJwtDecoder
+     */
+    public Optional<RSAPublicKey> previousVerificationPublicKey() {
+        String prevPem = System.getenv(ENV_PREV_PUBLIC);
+        if (prevPem == null || prevPem.isBlank()) {
+            return Optional.empty();
+        }
+        RSAPublicKey prevPub = parsePublicKey(prevPem);
+        String prevKid = System.getenv(ENV_PREV_KEY_ID);
+        if (prevKid == null || prevKid.isBlank()) {
+            prevKid = "profitflow-0";
+        }
+        log.info("JWT verification will fall back to previous key kid={}", prevKid.trim());
+        return Optional.of(prevPub);
+    }
+
+    /**
+     * Returns the RSA public key used to verify JWT signatures.
+     *
+     * @throws IllegalStateException in production if no env-var key is configured
+     */
+    public RSAPublicKey publicKey() {
+        String pem = System.getenv("RSA_PUBLIC_KEY_PEM");
+        if (pem != null && !pem.isBlank()) {
+            return parsePublicKey(pem);
+        }
+        guardClasspathUsage("RSA_PUBLIC_KEY_PEM");
+        return classpathKeys.rsaPublicKey();
+    }
+
+    /**
+     * Returns the RSA private key used to sign JWTs.
+     *
+     * @throws IllegalStateException in production if no env-var key is configured
+     */
+    public RSAPrivateKey privateKey() {
+        String pem = System.getenv("RSA_PRIVATE_KEY_PEM");
+        if (pem != null && !pem.isBlank()) {
+            return parsePrivateKey(pem);
+        }
+        guardClasspathUsage("RSA_PRIVATE_KEY_PEM");
+        return classpathKeys.rsaPrivateKey();
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Rejects startup in the {@code prod} profile if the named env var is absent.
+     * In other profiles, logs a prominent security warning instead.
+     */
+    private void guardClasspathUsage(String envVarName) {
+        if (isProductionProfile()) {
+            throw new IllegalStateException(
+                    "SECURITY VIOLATION: JWT signing key '" + envVarName + "' must be supplied "
+                    + "as an environment variable in the 'prod' profile. "
+                    + "Classpath/bundled keys are forbidden in production — they allow anyone "
+                    + "with image access to forge tokens with any role.");
+        }
+        log.warn("SECURITY WARNING: {} is not set. Using bundled classpath key. "
+                + "This is acceptable for local development only — NEVER in production.",
+                envVarName);
+    }
+
+    private boolean isProductionProfile() {
+        return activeProfiles != null && activeProfiles.contains("prod");
+    }
+
+    /**
+     * Parses a PEM-encoded RSA public key (PKCS#8 / X.509 SubjectPublicKeyInfo format).
+     *
+     * @param pem full PEM text including {@code -----BEGIN PUBLIC KEY-----} header
+     */
+    private static RSAPublicKey parsePublicKey(String pem) {
+        try {
+            String base64 = stripPemHeaders(pem);
+            byte[] der = Base64.getDecoder().decode(base64);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to parse RSA public key from RSA_PUBLIC_KEY_PEM: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses a PEM-encoded RSA private key (PKCS#8 format).
+     *
+     * @param pem full PEM text including {@code -----BEGIN PRIVATE KEY-----} header
+     */
+    private static RSAPrivateKey parsePrivateKey(String pem) {
+        try {
+            String base64 = stripPemHeaders(pem);
+            byte[] der = Base64.getDecoder().decode(base64);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            return (RSAPrivateKey) kf.generatePrivate(new PKCS8EncodedKeySpec(der));
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to parse RSA private key from RSA_PRIVATE_KEY_PEM: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Removes PEM header/footer lines and all whitespace to produce a raw base64 string.
+     */
+    private static String stripPemHeaders(String pem) {
+        return pem
+                .replaceAll("-----BEGIN[^-]*-----", "")
+                .replaceAll("-----END[^-]*-----", "")
+                .replaceAll("\\s", "");
+    }
+}

@@ -1,0 +1,73 @@
+<div class="space-y-8">
+  <!-- Page header -->
+  <div class="space-y-1">
+    <h2 class="pf-page-title">AI Smart Allocator</h2>
+    <p class="pf-page-subtitle">
+      Mock integration with an LLM-style allocator. Describe a spend line; the service returns a
+      suggested activity and driver (no external API keys required).
+    </p>
+  </div>
+
+  <!-- Error banner -->
+  @if (store.error(); as err) {
+    <div class="pf-alert-error" role="alert">{{ err }}</div>
+  }
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <!-- Input panel -->
+    <div class="pf-card-section">
+      <label class="block text-sm font-medium text-content-secondary">
+        Natural language expense
+        <textarea
+          class="pf-textarea mt-2 min-h-[160px]"
+          [value]="store.prompt()"
+          (input)="store.setPrompt($any($event.target).value)"
+          placeholder="Spent $5k on Zendesk for the support team"
+        ></textarea>
+      </label>
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="button"
+          class="pf-btn-primary"
+          (click)="store.suggest()"
+          [disabled]="store.loading()"
+        >
+          @if (store.loading()) { Suggesting… } @else { Get suggestion }
+        </button>
+        <button
+          type="button"
+          class="pf-btn-secondary"
+          (click)="store.reset()"
+          [disabled]="store.loading()"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- Result card -->
+    <div class="pf-card space-y-3">
+      <h3 class="pf-section-title">Suggestion</h3>
+      @if (store.result(); as res) {
+        <dl class="space-y-4 text-sm">
+          <div>
+            <dt class="pf-stat-label">Suggested activity</dt>
+            <dd class="mt-1 text-base font-medium text-content-primary">
+              {{ res.suggestedActivityName }}
+            </dd>
+          </div>
+          <div>
+            <dt class="pf-stat-label">Suggested driver</dt>
+            <dd class="mt-1 text-base text-content-secondary">
+              {{ res.suggestedAllocationDriver }}
+            </dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="text-sm text-content-muted">
+          Run a suggestion to see how ProfitFlow would classify the spend.
+        </p>
+      }
+    </div>
+  </div>
+</div>

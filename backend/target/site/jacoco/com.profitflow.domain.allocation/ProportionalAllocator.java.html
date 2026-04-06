@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProportionalAllocator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.domain.allocation</a> &gt; <span class="el_source">ProportionalAllocator.java</span></div><h1>ProportionalAllocator.java</h1><pre class="source lang-java linenums">package com.profitflow.domain.allocation;
+
+import com.profitflow.domain.DriverShare;
+import com.profitflow.domain.Money;
+import com.profitflow.domain.exception.AllocationDomainException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Proportional (driver-based) splitter for monetary amounts.
+ *
+ * &lt;h2&gt;Algorithm&lt;/h2&gt;
+ * &lt;ol&gt;
+ *   &lt;li&gt;Compute the sum of all driver weights ({@code sumW}).&lt;/li&gt;
+ *   &lt;li&gt;For each share except the last, allocate
+ *       {@code floor(total × weight / sumW, scale + 4)} rounded to the currency's
+ *       default fraction digits using {@link RoundingMode#HALF_UP}.&lt;/li&gt;
+ *   &lt;li&gt;The &lt;em&gt;last&lt;/em&gt; share receives the mathematical remainder
+ *       ({@code total − Σ already-allocated}) to guarantee the output sums to
+ *       {@code total} regardless of intermediate rounding.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;h2&gt;Invariants enforced&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;All target IDs must be unique within a single call.&lt;/li&gt;
+ *   &lt;li&gt;The sum of weights must be strictly positive.&lt;/li&gt;
+ *   &lt;li&gt;A zero {@code total} results in a zero allocation for every target
+ *       (no exception).&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;This class is stateless; all methods are static. It may be called safely
+ * from multiple threads simultaneously.
+ */
+public final class ProportionalAllocator {
+
+    private ProportionalAllocator() {
+        // utility class — no instances
+    }
+
+    /**
+     * Splits {@code total} proportionally across all {@code shares}.
+     *
+     * @param total  the monetary amount to split; must be non-negative
+     * @param shares ordered list of {@link DriverShare}; must be non-empty with
+     *               unique target IDs and a positive weight sum
+     * @return a {@link LinkedHashMap} preserving insertion order, mapping each
+     *         target ID to its allocated {@link Money} slice; guaranteed to sum
+     *         to {@code total}
+     * @throws AllocationDomainException if the weight sum is not positive or
+     *                                   duplicate target IDs are present
+     * @throws NullPointerException      if {@code total} or {@code shares} is null
+     */
+    public static Map&lt;String, Money&gt; split(Money total, List&lt;DriverShare&gt; shares) {
+<span class="fc" id="L61">        Objects.requireNonNull(total, &quot;total&quot;);</span>
+<span class="fc" id="L62">        Objects.requireNonNull(shares, &quot;shares&quot;);</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (shares.isEmpty()) {</span>
+<span class="fc" id="L64">            throw new AllocationDomainException(&quot;Driver shares list must not be empty&quot;);</span>
+        }
+
+<span class="fc" id="L67">        validateUniqueTargetIds(shares);</span>
+
+<span class="fc" id="L69">        BigDecimal sumW = shares.stream()</span>
+<span class="fc" id="L70">                .map(DriverShare::weight)</span>
+<span class="fc" id="L71">                .reduce(BigDecimal.ZERO, BigDecimal::add);</span>
+
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (sumW.signum() &lt;= 0) {</span>
+<span class="fc" id="L74">            throw new AllocationDomainException(</span>
+                    &quot;Sum of driver weights must be positive but was: &quot; + sumW);
+        }
+
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (total.isZero()) {</span>
+<span class="fc" id="L79">            return buildZeroMap(total, shares);</span>
+        }
+
+<span class="fc" id="L82">        return buildProportionalMap(total, shares, sumW);</span>
+    }
+
+    // --- private helpers ---
+
+    private static void validateUniqueTargetIds(List&lt;DriverShare&gt; shares) {
+<span class="fc" id="L88">        Set&lt;String&gt; seen = new HashSet&lt;&gt;(shares.size());</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        for (DriverShare s : shares) {</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">            if (!seen.add(s.targetId())) {</span>
+<span class="fc" id="L91">                throw new AllocationDomainException(&quot;Duplicate driver-share targetId: &quot; + s.targetId());</span>
+            }
+<span class="fc" id="L93">        }</span>
+<span class="fc" id="L94">    }</span>
+
+    private static Map&lt;String, Money&gt; buildZeroMap(Money total, List&lt;DriverShare&gt; shares) {
+<span class="fc" id="L97">        Money zero = new Money(BigDecimal.ZERO, total.currency());</span>
+<span class="fc" id="L98">        LinkedHashMap&lt;String, Money&gt; out = new LinkedHashMap&lt;&gt;(shares.size());</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (DriverShare s : shares) {</span>
+<span class="fc" id="L100">            out.put(s.targetId(), zero);</span>
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">        return out;</span>
+    }
+
+    private static Map&lt;String, Money&gt; buildProportionalMap(
+            Money total,
+            List&lt;DriverShare&gt; shares,
+            BigDecimal sumW) {
+
+<span class="fc" id="L110">        var currency = total.currency();</span>
+<span class="fc" id="L111">        int scale = Math.max(currency.getDefaultFractionDigits(), 0);</span>
+
+<span class="fc" id="L113">        BigDecimal totalAmt = total.amount();</span>
+<span class="fc" id="L114">        int n = shares.size();</span>
+<span class="fc" id="L115">        BigDecimal allocatedSoFar = BigDecimal.ZERO;</span>
+<span class="fc" id="L116">        LinkedHashMap&lt;String, Money&gt; out = new LinkedHashMap&lt;&gt;(n);</span>
+
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        for (int i = 0; i &lt; n - 1; i++) {</span>
+<span class="fc" id="L119">            DriverShare s = shares.get(i);</span>
+            // Compute at higher precision then round to currency scale (HALF_UP)
+<span class="fc" id="L121">            BigDecimal raw = totalAmt.multiply(s.weight())</span>
+<span class="fc" id="L122">                    .divide(sumW, scale + 4, RoundingMode.HALF_UP);</span>
+<span class="fc" id="L123">            BigDecimal rounded = raw.setScale(scale, RoundingMode.HALF_UP);</span>
+<span class="fc" id="L124">            out.put(s.targetId(), new Money(rounded, currency));</span>
+<span class="fc" id="L125">            allocatedSoFar = allocatedSoFar.add(rounded);</span>
+        }
+
+        // Last share receives the mathematical remainder to avoid penny drift
+<span class="fc" id="L129">        DriverShare last = shares.getLast();</span>
+<span class="fc" id="L130">        BigDecimal remainder = totalAmt.subtract(allocatedSoFar).setScale(scale, RoundingMode.HALF_UP);</span>
+<span class="fc" id="L131">        out.put(last.targetId(), new Money(remainder, currency));</span>
+<span class="fc" id="L132">        return out;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

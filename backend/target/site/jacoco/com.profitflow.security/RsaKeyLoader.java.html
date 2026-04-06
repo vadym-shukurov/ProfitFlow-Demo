@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RsaKeyLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">RsaKeyLoader.java</span></div><h1>RsaKeyLoader.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.RSAKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.Optional;
+
+/**
+ * Loads the RSA key pair used to sign and verify JWTs.
+ *
+ * &lt;h2&gt;Key source priority (highest first)&lt;/h2&gt;
+ * &lt;ol&gt;
+ *   &lt;li&gt;&lt;strong&gt;Environment variables&lt;/strong&gt; — {@code RSA_PRIVATE_KEY_PEM} and
+ *       {@code RSA_PUBLIC_KEY_PEM}. Each must contain the full PEM text including
+ *       header/footer lines. &lt;em&gt;This is the required production path.&lt;/em&gt;&lt;/li&gt;
+ *   &lt;li&gt;&lt;strong&gt;Classpath files&lt;/strong&gt; — {@code certs/private.pem} and
+ *       {@code certs/public.pem}. Used only in local development and tests.
+ *       A startup warning is emitted whenever classpath keys are used.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;h2&gt;Production setup&lt;/h2&gt;
+ * &lt;pre&gt;
+ * RSA_PRIVATE_KEY_PEM=&quot;-----BEGIN PRIVATE KEY-----
+ * MIIEvAIBADANBgkqhkiG9w...
+ * -----END PRIVATE KEY-----&quot;
+ *
+ * RSA_PUBLIC_KEY_PEM=&quot;-----BEGIN PUBLIC KEY-----
+ * MIIBIjANBgkqhkiG9w0BAQ...
+ * -----END PUBLIC KEY-----&quot;
+ * &lt;/pre&gt;
+ *
+ * The keys must be injected via a secrets manager (Vault, AWS Secrets Manager,
+ * Kubernetes Secret) — never committed to source control.
+ *
+ * &lt;h2&gt;Key rotation (JWT {@code kid})&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code JWT_SIGNING_KEY_ID} — {@code kid} for newly issued tokens (default
+ *       {@code profitflow-1}).&lt;/li&gt;
+ *   &lt;li&gt;{@code RSA_PREVIOUS_PUBLIC_KEY_PEM} — optional second public key still trusted
+ *       for verification until old tokens expire.&lt;/li&gt;
+ *   &lt;li&gt;{@code RSA_PREVIOUS_KEY_ID} — {@code kid} for the previous key (default
+ *       {@code profitflow-0}).&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@Component
+public class RsaKeyLoader {
+
+<span class="fc" id="L58">    private static final Logger log = LoggerFactory.getLogger(RsaKeyLoader.class);</span>
+
+    private static final String ENV_SIGNING_KEY_ID = &quot;JWT_SIGNING_KEY_ID&quot;;
+    private static final String ENV_PREV_PUBLIC    = &quot;RSA_PREVIOUS_PUBLIC_KEY_PEM&quot;;
+    private static final String ENV_PREV_KEY_ID    = &quot;RSA_PREVIOUS_KEY_ID&quot;;
+
+    // Classpath fallback — active only in local dev / CI with local profile
+    private final RsaKeyProperties classpathKeys;
+
+    // Active profile — used to determine whether to block classpath keys
+    private final String activeProfiles;
+
+    /** {@code kid} claim for access tokens signed with the current private key. */
+    private final String configuredSigningKeyId;
+
+    public RsaKeyLoader(RsaKeyProperties classpathKeys,
+                        @Value(&quot;${spring.profiles.active:default}&quot;) String activeProfiles,
+                        @Value(&quot;${profitflow.security.jwt.signing-key-id:profitflow-1}&quot;)
+<span class="fc" id="L76">                                String configuredSigningKeyId) {</span>
+<span class="fc" id="L77">        this.classpathKeys           = classpathKeys;</span>
+<span class="fc" id="L78">        this.activeProfiles          = activeProfiles;</span>
+<span class="fc" id="L79">        this.configuredSigningKeyId  = configuredSigningKeyId;</span>
+<span class="fc" id="L80">    }</span>
+
+    /**
+     * Key ID embedded in the JWT JWS header and matched against verification keys.
+     */
+    public String signingKeyId() {
+<span class="fc" id="L86">        String fromEnv = System.getenv(ENV_SIGNING_KEY_ID);</span>
+<span class="pc bpc" id="L87" title="3 of 4 branches missed.">        if (fromEnv != null &amp;&amp; !fromEnv.isBlank()) {</span>
+<span class="nc" id="L88">            return fromEnv.trim();</span>
+        }
+<span class="fc" id="L90">        return configuredSigningKeyId;</span>
+    }
+
+    /**
+     * Nimbus JWK for the encoder — includes private key + {@code kid}.
+     */
+    public RSAKey signingJwk() {
+<span class="fc" id="L97">        return new RSAKey.Builder(publicKey())</span>
+<span class="fc" id="L98">                .privateKey(privateKey())</span>
+<span class="fc" id="L99">                .keyID(signingKeyId())</span>
+<span class="fc" id="L100">                .algorithm(JWSAlgorithm.RS256)</span>
+<span class="fc" id="L101">                .build();</span>
+    }
+
+    /**
+     * Optional previous public key still trusted during key rotation.
+     *
+     * @see FallbackJwtDecoder
+     */
+    public Optional&lt;RSAPublicKey&gt; previousVerificationPublicKey() {
+<span class="fc" id="L110">        String prevPem = System.getenv(ENV_PREV_PUBLIC);</span>
+<span class="pc bpc" id="L111" title="3 of 4 branches missed.">        if (prevPem == null || prevPem.isBlank()) {</span>
+<span class="fc" id="L112">            return Optional.empty();</span>
+        }
+<span class="nc" id="L114">        RSAPublicKey prevPub = parsePublicKey(prevPem);</span>
+<span class="nc" id="L115">        String prevKid = System.getenv(ENV_PREV_KEY_ID);</span>
+<span class="nc bnc" id="L116" title="All 4 branches missed.">        if (prevKid == null || prevKid.isBlank()) {</span>
+<span class="nc" id="L117">            prevKid = &quot;profitflow-0&quot;;</span>
+        }
+<span class="nc" id="L119">        log.info(&quot;JWT verification will fall back to previous key kid={}&quot;, prevKid.trim());</span>
+<span class="nc" id="L120">        return Optional.of(prevPub);</span>
+    }
+
+    /**
+     * Returns the RSA public key used to verify JWT signatures.
+     *
+     * @throws IllegalStateException in production if no env-var key is configured
+     */
+    public RSAPublicKey publicKey() {
+<span class="fc" id="L129">        String pem = System.getenv(&quot;RSA_PUBLIC_KEY_PEM&quot;);</span>
+<span class="pc bpc" id="L130" title="3 of 4 branches missed.">        if (pem != null &amp;&amp; !pem.isBlank()) {</span>
+<span class="nc" id="L131">            return parsePublicKey(pem);</span>
+        }
+<span class="fc" id="L133">        guardClasspathUsage(&quot;RSA_PUBLIC_KEY_PEM&quot;);</span>
+<span class="fc" id="L134">        return classpathKeys.rsaPublicKey();</span>
+    }
+
+    /**
+     * Returns the RSA private key used to sign JWTs.
+     *
+     * @throws IllegalStateException in production if no env-var key is configured
+     */
+    public RSAPrivateKey privateKey() {
+<span class="fc" id="L143">        String pem = System.getenv(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
+<span class="pc bpc" id="L144" title="3 of 4 branches missed.">        if (pem != null &amp;&amp; !pem.isBlank()) {</span>
+<span class="nc" id="L145">            return parsePrivateKey(pem);</span>
+        }
+<span class="fc" id="L147">        guardClasspathUsage(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
+<span class="fc" id="L148">        return classpathKeys.rsaPrivateKey();</span>
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Rejects startup in the {@code prod} profile if the named env var is absent.
+     * In other profiles, logs a prominent security warning instead.
+     */
+    private void guardClasspathUsage(String envVarName) {
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        if (isProductionProfile()) {</span>
+<span class="fc" id="L159">            throw new IllegalStateException(</span>
+                    &quot;SECURITY VIOLATION: JWT signing key '&quot; + envVarName + &quot;' must be supplied &quot;
+                    + &quot;as an environment variable in the 'prod' profile. &quot;
+                    + &quot;Classpath/bundled keys are forbidden in production — they allow anyone &quot;
+                    + &quot;with image access to forge tokens with any role.&quot;);
+        }
+<span class="fc" id="L165">        log.warn(&quot;SECURITY WARNING: {} is not set. Using bundled classpath key. &quot;</span>
+                + &quot;This is acceptable for local development only — NEVER in production.&quot;,
+                envVarName);
+<span class="fc" id="L168">    }</span>
+
+    private boolean isProductionProfile() {
+<span class="pc bpc" id="L171" title="1 of 4 branches missed.">        return activeProfiles != null &amp;&amp; activeProfiles.contains(&quot;prod&quot;);</span>
+    }
+
+    /**
+     * Parses a PEM-encoded RSA public key (PKCS#8 / X.509 SubjectPublicKeyInfo format).
+     *
+     * @param pem full PEM text including {@code -----BEGIN PUBLIC KEY-----} header
+     */
+    private static RSAPublicKey parsePublicKey(String pem) {
+        try {
+<span class="nc" id="L181">            String base64 = stripPemHeaders(pem);</span>
+<span class="nc" id="L182">            byte[] der = Base64.getDecoder().decode(base64);</span>
+<span class="nc" id="L183">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="nc" id="L184">            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));</span>
+<span class="nc" id="L185">        } catch (Exception e) {</span>
+<span class="nc" id="L186">            throw new IllegalStateException(</span>
+<span class="nc" id="L187">                    &quot;Failed to parse RSA public key from RSA_PUBLIC_KEY_PEM: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    /**
+     * Parses a PEM-encoded RSA private key (PKCS#8 format).
+     *
+     * @param pem full PEM text including {@code -----BEGIN PRIVATE KEY-----} header
+     */
+    private static RSAPrivateKey parsePrivateKey(String pem) {
+        try {
+<span class="nc" id="L198">            String base64 = stripPemHeaders(pem);</span>
+<span class="nc" id="L199">            byte[] der = Base64.getDecoder().decode(base64);</span>
+<span class="nc" id="L200">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="nc" id="L201">            return (RSAPrivateKey) kf.generatePrivate(new PKCS8EncodedKeySpec(der));</span>
+<span class="nc" id="L202">        } catch (Exception e) {</span>
+<span class="nc" id="L203">            throw new IllegalStateException(</span>
+<span class="nc" id="L204">                    &quot;Failed to parse RSA private key from RSA_PRIVATE_KEY_PEM: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    /**
+     * Removes PEM header/footer lines and all whitespace to produce a raw base64 string.
+     */
+    private static String stripPemHeaders(String pem) {
+<span class="nc" id="L212">        return pem</span>
+<span class="nc" id="L213">                .replaceAll(&quot;-----BEGIN[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="nc" id="L214">                .replaceAll(&quot;-----END[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="nc" id="L215">                .replaceAll(&quot;\\s&quot;, &quot;&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

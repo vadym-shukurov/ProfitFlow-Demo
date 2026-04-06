@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResourceCostService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.application.service</a> &gt; <span class="el_source">ResourceCostService.java</span></div><h1>ResourceCostService.java</h1><pre class="source lang-java linenums">package com.profitflow.application.service;
+
+import com.profitflow.application.exception.InvalidInputException;
+import com.profitflow.application.port.in.ResourceCostUseCase;
+import com.profitflow.application.port.out.ResourceCostRepositoryPort;
+import com.profitflow.domain.Money;
+import com.profitflow.domain.ResourceCost;
+import com.profitflow.application.port.out.BusinessMetricsPort;
+import com.profitflow.application.cache.CacheNames;
+import com.profitflow.application.audit.AuditedOperation;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Currency;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Application service that manages the raw cost ledger.
+ *
+ * &lt;h2&gt;Responsibilities&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;Enforce label/amount business rules and generate identifiers.&lt;/li&gt;
+ *   &lt;li&gt;Delegate persistence to {@link ResourceCostRepositoryPort}.&lt;/li&gt;
+ *   &lt;li&gt;Apply CSV injection defence during bulk import.&lt;/li&gt;
+ *   &lt;li&gt;Cache the full cost list to reduce database round-trips under high traffic.&lt;/li&gt;
+ *   &lt;li&gt;Record business metrics for SLI/SLO tracking.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h2&gt;Cache strategy&lt;/h2&gt;
+ * {@link #listCosts()} is cached under {@value CacheNames#RESOURCE_COSTS}.
+ * Any write operation ({@code createCost}, {@code importCostsFromCsv}) evicts the
+ * cache so the next {@code listCosts} call fetches fresh data.
+ */
+@Service
+public class ResourceCostService implements ResourceCostUseCase {
+
+    private final ResourceCostRepositoryPort resourceCosts;
+    private final BusinessMetricsPort        metrics;
+
+    /**
+     * Self-reference injected lazily to enable Spring AOP proxy-through-self calls
+     * from {@link #importCostsFromCsv} to {@link #createCost}.
+     *
+     * &lt;p&gt;Without this, calling {@code createCost(...)} directly inside
+     * {@code importCostsFromCsv} bypasses the Spring proxy, meaning the
+     * {@code @AuditedOperation} and {@code @CacheEvict} on {@code createCost}
+     * would not fire for each imported row. By routing the call through the
+     * injected proxy, all per-row annotations execute normally.
+     *
+     * &lt;p&gt;The outer {@code importCostsFromCsv} already carries its own
+     * {@code @AuditedOperation(critical=true)} and {@code @CacheEvict},
+     * so the per-row auditing is an additional fine-grained trail suitable for
+     * compliance requirements.
+     */
+    @Autowired
+    @Lazy
+    private ResourceCostService self;
+
+    public ResourceCostService(
+            ResourceCostRepositoryPort resourceCosts,
+<span class="fc" id="L73">            BusinessMetricsPort metrics) {</span>
+<span class="fc" id="L74">        this.resourceCosts = resourceCosts;</span>
+<span class="fc" id="L75">        this.metrics       = metrics;</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * Returns all persisted resource costs.
+     * The result is served from the {@value CacheNames#RESOURCE_COSTS} Caffeine
+     * cache for up to 60 seconds, limiting database queries under concurrent read load.
+     */
+    @Override
+    @Cacheable(CacheNames.RESOURCE_COSTS)
+    public List&lt;ResourceCost&gt; listCosts() {
+<span class="fc" id="L86">        return resourceCosts.findAll();</span>
+    }
+
+    /**
+     * Creates and persists a single resource cost.
+     * Evicts the {@value CacheNames#RESOURCE_COSTS} cache so subsequent list
+     * requests reflect the new entry.
+     *
+     * @param label        human-readable GL line description; must not be blank
+     * @param amount       non-negative monetary value
+     * @param currencyCode ISO 4217 currency code; defaults to {@code &quot;USD&quot;} if null/blank
+     * @return the saved {@link ResourceCost} with its generated ID
+     * @throws InvalidInputException if {@code label} is blank or {@code amount} is negative
+     */
+    @Override
+    @AuditedOperation(action = &quot;RESOURCE_COST_CREATED&quot;, entityType = &quot;ResourceCost&quot;,
+                      entityIdSpEL = &quot;id()&quot;, critical = true)
+    @CacheEvict(value = CacheNames.RESOURCE_COSTS, allEntries = true)
+    public ResourceCost createCost(String label, BigDecimal amount, String currencyCode) {
+<span class="fc bfc" id="L105" title="All 4 branches covered.">        if (label == null || label.isBlank()) {</span>
+<span class="fc" id="L106">            throw new InvalidInputException(&quot;Resource cost label must not be blank&quot;);</span>
+        }
+<span class="fc" id="L108">        Currency currency = parseCurrency(currencyCode);</span>
+<span class="fc" id="L109">        Money money = new Money(amount, currency);</span>
+<span class="fc" id="L110">        ResourceCost rc = new ResourceCost(UUID.randomUUID().toString(), label.strip(), money);</span>
+<span class="fc" id="L111">        ResourceCost saved = resourceCosts.save(rc);</span>
+<span class="fc" id="L112">        metrics.recordCostCreated();</span>
+<span class="fc" id="L113">        return saved;</span>
+    }
+
+    /**
+     * Bulk-imports resource costs from a CSV string using an RFC 4180 compliant parser.
+     *
+     * &lt;h2&gt;Accepted formats&lt;/h2&gt;
+     * &lt;pre&gt;
+     *   label,amount            ← two columns, USD default
+     *   label,amount,currency   ← three columns with ISO 4217 code
+     * &lt;/pre&gt;
+     *
+     * &lt;p&gt;An optional header row is detected by checking if the first record's first
+     * value contains the word {@code &quot;label&quot;} (case-insensitive).
+     *
+     * &lt;p&gt;The entire import runs inside a single transaction so that a malformed row
+     * rolls back all preceding rows (atomicity). The cache is evicted on success.
+     *
+     * &lt;p&gt;Uses Apache Commons CSV for proper RFC 4180 handling — correctly parses
+     * quoted fields, embedded commas, and escaped quotes that naive {@code split(&quot;,&quot;)}
+     * implementations would mangle.
+     *
+     * @param csvContent raw CSV text; blank input returns an empty list
+     * @return list of persisted {@link ResourceCost} objects in CSV row order
+     * @throws InvalidInputException if any row is malformed or has a non-numeric amount
+     */
+    @Override
+    @Transactional
+    @AuditedOperation(action = &quot;RESOURCE_COSTS_IMPORTED&quot;, entityType = &quot;ResourceCost&quot;,
+                      critical = true)
+    @CacheEvict(value = CacheNames.RESOURCE_COSTS, allEntries = true)
+    public List&lt;ResourceCost&gt; importCostsFromCsv(String csvContent) {
+<span class="fc bfc" id="L145" title="All 4 branches covered.">        if (csvContent == null || csvContent.isBlank()) {</span>
+<span class="fc" id="L146">            return List.of();</span>
+        }
+
+<span class="fc" id="L149">        List&lt;ResourceCost&gt; created = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="fc" id="L151">            CSVFormat format = CSVFormat.RFC4180.builder()</span>
+<span class="fc" id="L152">                    .setIgnoreSurroundingSpaces(true)</span>
+<span class="fc" id="L153">                    .setIgnoreEmptyLines(true)</span>
+<span class="fc" id="L154">                    .setTrim(true)</span>
+<span class="fc" id="L155">                    .build();</span>
+
+<span class="fc" id="L157">            try (CSVParser parser = format.parse(new StringReader(csvContent))) {</span>
+<span class="fc" id="L158">                int rowNumber = 0;</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">                for (CSVRecord record : parser) {</span>
+<span class="fc" id="L160">                    rowNumber++;</span>
+
+                    // Skip header row (first row whose first value looks like a column name)
+<span class="fc bfc" id="L163" title="All 4 branches covered.">                    if (rowNumber == 1 &amp;&amp; isHeaderRecord(record)) {</span>
+<span class="fc" id="L164">                        continue;</span>
+                    }
+
+<span class="fc bfc" id="L167" title="All 2 branches covered.">                    if (record.size() &lt; 2) {</span>
+<span class="fc" id="L168">                        throw new InvalidInputException(</span>
+                                &quot;CSV row &quot; + rowNumber + &quot; must have at least 2 columns &quot;
+<span class="fc" id="L170">                                + &quot;(label,amount) but had &quot; + record.size());</span>
+                    }
+
+<span class="fc" id="L173">                    String label = stripCsvInjectionChars(record.get(0));</span>
+                    BigDecimal amount;
+                    try {
+<span class="fc" id="L176">                        amount = new BigDecimal(record.get(1));</span>
+<span class="fc" id="L177">                    } catch (NumberFormatException e) {</span>
+<span class="fc" id="L178">                        throw new InvalidInputException(</span>
+                                &quot;CSV row &quot; + rowNumber + &quot; has non-numeric amount: '&quot;
+<span class="fc" id="L180">                                + record.get(1) + &quot;'&quot;, e);</span>
+<span class="fc" id="L181">                    }</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">                    String currency = record.size() &gt;= 3 ? record.get(2) : &quot;USD&quot;;</span>
+                    // Route through self-proxy so @AuditedOperation and @CacheEvict on
+                    // createCost fire for each row (Spring AOP does not intercept
+                    // direct same-class calls).
+<span class="fc" id="L186">                    created.add(self.createCost(label, amount, currency));</span>
+<span class="fc" id="L187">                }</span>
+            }
+<span class="fc" id="L189">            metrics.recordCostImportSuccess();</span>
+<span class="fc" id="L190">        } catch (InvalidInputException e) {</span>
+<span class="fc" id="L191">            metrics.recordCostImportFailure();</span>
+<span class="fc" id="L192">            throw e;</span>
+<span class="nc" id="L193">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L194">            metrics.recordCostImportFailure();</span>
+<span class="nc" id="L195">            throw new InvalidInputException(e.getMessage(), e);</span>
+<span class="nc" id="L196">        } catch (IOException e) {</span>
+<span class="nc" id="L197">            metrics.recordCostImportFailure();</span>
+<span class="nc" id="L198">            throw new InvalidInputException(&quot;Failed to parse CSV content: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L199">        }</span>
+<span class="fc" id="L200">        return created;</span>
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private static Currency parseCurrency(String code) {
+<span class="fc bfc" id="L206" title="All 4 branches covered.">        if (code == null || code.isBlank()) {</span>
+<span class="fc" id="L207">            return Currency.getInstance(&quot;USD&quot;);</span>
+        }
+        try {
+<span class="fc" id="L210">            return Currency.getInstance(code.strip().toUpperCase());</span>
+<span class="fc" id="L211">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L212">            throw new InvalidInputException(&quot;Unknown currency code: '&quot; + code + &quot;'&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Removes leading characters that spreadsheet applications (Excel, Google Sheets)
+     * interpret as formula entry points ({@code = + - @ \t \r}).
+     *
+     * &lt;p&gt;Without this defence, an attacker can craft a label like
+     * {@code =HYPERLINK(&quot;http://evil.com&quot;,&quot;Click me&quot;)} that becomes an active
+     * formula when the exported CSV is opened in a spreadsheet.
+     */
+    static String stripCsvInjectionChars(String value) {
+<span class="fc bfc" id="L225" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L226">            return null;</span>
+        }
+<span class="fc" id="L228">        int i = 0;</span>
+<span class="pc bpc" id="L229" title="1 of 4 branches missed.">        while (i &lt; value.length() &amp;&amp; &quot;=+-@\t\r&quot;.indexOf(value.charAt(i)) &gt;= 0) {</span>
+<span class="fc" id="L230">            i++;</span>
+        }
+<span class="fc" id="L232">        return value.substring(i).stripLeading();</span>
+    }
+
+    /** Returns {@code true} if the record looks like a CSV header row. */
+    private static boolean isHeaderRecord(CSVRecord record) {
+<span class="pc bpc" id="L237" title="1 of 4 branches missed.">        return record.size() &gt; 0 &amp;&amp; record.get(0).toLowerCase().contains(&quot;label&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

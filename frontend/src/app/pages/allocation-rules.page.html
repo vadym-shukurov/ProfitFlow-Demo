@@ -1,0 +1,198 @@
+<div class="space-y-10">
+  <!-- Page header -->
+  <div class="space-y-1">
+    <h2 class="pf-page-title">Allocation Rules</h2>
+    <p class="pf-page-subtitle">
+      Stage 1 spreads each resource cost to activities; stage 2 loads activities onto products.
+      Driver weights are proportional within each resource or activity.
+    </p>
+  </div>
+
+  <!-- Error banner -->
+  @if (rules.error(); as err) {
+    <div class="pf-alert-error" role="alert">{{ err }}</div>
+  }
+
+  @if (rules.loading()) {
+    <p class="text-sm text-content-muted">Loading catalog and rules…</p>
+  } @else {
+
+    <!-- Stage 1: Resource → Activity -->
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="pf-section-title">Resource → activity</h3>
+          <p class="pf-section-subtitle">Weights are relative per resource.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="pf-btn-sm-secondary"
+            (click)="rules.addResourceActivityDraft()"
+          >
+            Add row
+          </button>
+          <button
+            type="button"
+            class="pf-btn-sm-primary"
+            (click)="saveResourceActivity()"
+            [disabled]="rules.saving()"
+          >
+            Save rules
+          </button>
+        </div>
+      </div>
+
+      <div class="pf-table-wrapper">
+        <table class="pf-table">
+          <thead class="pf-thead">
+            <tr>
+              <th class="pf-th-sm">Resource</th>
+              <th class="pf-th-sm">Activity</th>
+              <th class="pf-th-sm">Driver weight</th>
+              <th class="pf-th-sm"></th>
+            </tr>
+          </thead>
+          <tbody class="pf-tbody">
+            @for (row of rules.resourceActivityRules(); track $index) {
+              <tr>
+                <td class="pf-td-sm">
+                  <select
+                    class="pf-select min-w-[12rem]"
+                    [value]="row.resourceId"
+                    (change)="rules.patchResourceActivityRow($index, { resourceId: $any($event.target).value })"
+                  >
+                    <option value="">Select resource</option>
+                    @for (r of rules.resources(); track r.id) {
+                      <option [value]="r.id">{{ r.label }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="pf-td-sm">
+                  <select
+                    class="pf-select min-w-[12rem]"
+                    [value]="row.activityId"
+                    (change)="rules.patchResourceActivityRow($index, { activityId: $any($event.target).value })"
+                  >
+                    <option value="">Select activity</option>
+                    @for (a of rules.activities(); track a.id) {
+                      <option [value]="a.id">{{ a.name }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="pf-td-sm">
+                  <input
+                    class="pf-input-compact"
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    [value]="row.driverWeight"
+                    (input)="rules.patchResourceActivityRow($index, { driverWeight: num($any($event.target).value) })"
+                  />
+                </td>
+                <td class="pf-td-sm text-right">
+                  <button
+                    type="button"
+                    class="pf-btn-remove"
+                    (click)="rules.removeResourceActivityRow($index)"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Stage 2: Activity → Product -->
+    <section class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="pf-section-title">Activity → product</h3>
+          <p class="pf-section-subtitle">Weights are relative per activity.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="pf-btn-sm-secondary"
+            (click)="rules.addActivityProductDraft()"
+          >
+            Add row
+          </button>
+          <button
+            type="button"
+            class="pf-btn-sm-primary"
+            (click)="saveActivityProduct()"
+            [disabled]="rules.saving()"
+          >
+            Save rules
+          </button>
+        </div>
+      </div>
+
+      <div class="pf-table-wrapper">
+        <table class="pf-table">
+          <thead class="pf-thead">
+            <tr>
+              <th class="pf-th-sm">Activity</th>
+              <th class="pf-th-sm">Product</th>
+              <th class="pf-th-sm">Driver weight</th>
+              <th class="pf-th-sm"></th>
+            </tr>
+          </thead>
+          <tbody class="pf-tbody">
+            @for (row of rules.activityProductRules(); track $index) {
+              <tr>
+                <td class="pf-td-sm">
+                  <select
+                    class="pf-select min-w-[12rem]"
+                    [value]="row.activityId"
+                    (change)="rules.patchActivityProductRow($index, { activityId: $any($event.target).value })"
+                  >
+                    <option value="">Select activity</option>
+                    @for (a of rules.activities(); track a.id) {
+                      <option [value]="a.id">{{ a.name }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="pf-td-sm">
+                  <select
+                    class="pf-select min-w-[12rem]"
+                    [value]="row.productId"
+                    (change)="rules.patchActivityProductRow($index, { productId: $any($event.target).value })"
+                  >
+                    <option value="">Select product</option>
+                    @for (p of rules.products(); track p.id) {
+                      <option [value]="p.id">{{ p.name }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="pf-td-sm">
+                  <input
+                    class="pf-input-compact"
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    [value]="row.driverWeight"
+                    (input)="rules.patchActivityProductRow($index, { driverWeight: num($any($event.target).value) })"
+                  />
+                </td>
+                <td class="pf-td-sm text-right">
+                  <button
+                    type="button"
+                    class="pf-btn-remove"
+                    (click)="rules.removeActivityProductRow($index)"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+</div>

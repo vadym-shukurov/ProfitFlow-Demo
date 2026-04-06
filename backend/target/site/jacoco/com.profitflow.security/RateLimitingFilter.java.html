@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RateLimitingFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">RateLimitingFilter.java</span></div><h1>RateLimitingFilter.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import com.profitflow.security.ratelimit.RateLimiterBackend;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+/**
+ * IP-level rate limiting delegating to {@link RateLimiterBackend}.
+ *
+ * &lt;p&gt;Default backend is in-memory Bucket4j. Enable {@code profitflow.rate-limit.redis.enabled}
+ * for Redis-backed limits across nodes (see {@code docs/adr/001-multi-instance-scaling.md}).
+ */
+@Component
+public class RateLimitingFilter extends OncePerRequestFilter {
+
+<span class="fc" id="L28">    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);</span>
+
+    private final ClientIpResolverPort clientIpResolver;
+    private final RateLimiterBackend   rateLimiterBackend;
+
+    public RateLimitingFilter(ClientIpResolverPort clientIpResolver,
+<span class="fc" id="L34">                              RateLimiterBackend rateLimiterBackend) {</span>
+<span class="fc" id="L35">        this.clientIpResolver   = clientIpResolver;</span>
+<span class="fc" id="L36">        this.rateLimiterBackend = rateLimiterBackend;</span>
+<span class="fc" id="L37">    }</span>
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain chain) throws ServletException, IOException {
+
+<span class="fc" id="L45">        String ip   = clientIpResolver.resolve(request);</span>
+<span class="fc" id="L46">        String path = request.getRequestURI();</span>
+
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
+<span class="fc" id="L49">            chain.doFilter(request, response);</span>
+        } else {
+<span class="nc" id="L51">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="nc" id="L52">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
+                    ip, path, correlationId);
+<span class="nc" id="L54">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
+<span class="nc" id="L55">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
+<span class="nc" id="L56">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
+<span class="nc" id="L58">            response.getWriter().write(</span>
+                    &quot;{\&quot;message\&quot;:\&quot;Too many requests — please wait before retrying.\&quot;,&quot;
+                    + &quot;\&quot;correlationId\&quot;:\&quot;&quot; + cid + &quot;\&quot;}&quot;);
+        }
+<span class="fc" id="L62">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

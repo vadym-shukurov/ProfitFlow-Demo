@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AllocationFlowDto.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.application.model</a> &gt; <span class="el_source">AllocationFlowDto.java</span></div><h1>AllocationFlowDto.java</h1><pre class="source lang-java linenums">package com.profitflow.application.model;
+
+import java.math.BigDecimal;
+
+/**
+ * A single directed cost-flow edge from a source node to a target node.
+ *
+ * &lt;p&gt;Used to populate the Sankey diagram on the CFO dashboard. Each edge
+ * represents a portion of cost flowing from a resource to an activity
+ * (stage 1) or from an activity to a product (stage 2).
+ *
+ * @param fromKind    node kind of the source: {@code RESOURCE}, {@code ACTIVITY}, or {@code PRODUCT}
+ * @param fromId      UUID string of the source node
+ * @param toKind      node kind of the destination
+ * @param toId        UUID string of the destination node
+ * @param amount      monetary amount flowing along this edge
+ * @param currencyCode ISO 4217 currency code of the amount
+ */
+<span class="fc" id="L19">public record AllocationFlowDto(</span>
+        String fromKind,
+        String fromId,
+        String toKind,
+        String toId,
+        BigDecimal amount,
+        String currencyCode
+) {
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

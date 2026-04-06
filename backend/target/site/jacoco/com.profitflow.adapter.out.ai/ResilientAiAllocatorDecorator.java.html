@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResilientAiAllocatorDecorator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.adapter.out.ai</a> &gt; <span class="el_source">ResilientAiAllocatorDecorator.java</span></div><h1>ResilientAiAllocatorDecorator.java</h1><pre class="source lang-java linenums">package com.profitflow.adapter.out.ai;
+
+import com.profitflow.application.model.AiSuggestion;
+import com.profitflow.application.port.out.AiAllocatorPort;
+import com.profitflow.application.port.out.BusinessMetricsPort;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PreDestroy;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+/**
+ * Wraps the concrete {@link AiAllocatorPort} with a wall-clock timeout and metrics.
+ *
+ * &lt;p&gt;On timeout or unexpected failure, returns the same safe fallback as the mock
+ * adapter ({@code General Administration} / {@code Headcount}) so callers still get a 200.
+ */
+@Component
+@Primary
+public class ResilientAiAllocatorDecorator implements AiAllocatorPort {
+
+<span class="fc" id="L30">    private static final AiSuggestion FALLBACK =</span>
+            new AiSuggestion(&quot;General Administration&quot;, &quot;Headcount&quot;);
+
+    private final AiAllocatorPort       delegate;
+    private final long                  timeoutMs;
+    private final BusinessMetricsPort   metrics;
+<span class="fc" id="L36">    private final ExecutorService       executor = Executors.newVirtualThreadPerTaskExecutor();</span>
+
+    public ResilientAiAllocatorDecorator(
+            @Qualifier(&quot;mockAiAllocatorAdapter&quot;) AiAllocatorPort delegate,
+            @Value(&quot;${profitflow.ai.suggest-timeout-ms:3000}&quot;) long timeoutMs,
+<span class="fc" id="L41">            BusinessMetricsPort metrics) {</span>
+<span class="fc" id="L42">        this.delegate   = delegate;</span>
+<span class="fc" id="L43">        this.timeoutMs  = timeoutMs;</span>
+<span class="fc" id="L44">        this.metrics    = metrics;</span>
+<span class="fc" id="L45">    }</span>
+
+    @PreDestroy
+    void shutdownExecutor() {
+<span class="nc" id="L49">        executor.shutdown();</span>
+<span class="nc" id="L50">    }</span>
+
+    @Override
+    public AiSuggestion suggest(String naturalLanguageExpense) {
+<span class="fc" id="L54">        long start = System.nanoTime();</span>
+<span class="fc" id="L55">        Future&lt;AiSuggestion&gt; future = executor.submit(</span>
+<span class="fc" id="L56">                () -&gt; delegate.suggest(naturalLanguageExpense));</span>
+        try {
+<span class="fc" id="L58">            AiSuggestion s = future.get(timeoutMs, TimeUnit.MILLISECONDS);</span>
+<span class="fc" id="L59">            metrics.recordAiSuggestionSuccess(System.nanoTime() - start);</span>
+<span class="fc" id="L60">            return s;</span>
+<span class="fc" id="L61">        } catch (TimeoutException e) {</span>
+<span class="fc" id="L62">            future.cancel(true);</span>
+<span class="fc" id="L63">            metrics.recordAiSuggestionTimeout();</span>
+<span class="fc" id="L64">            return FALLBACK;</span>
+<span class="nc" id="L65">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L66">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L67">            future.cancel(true);</span>
+<span class="nc" id="L68">            metrics.recordAiSuggestionError();</span>
+<span class="nc" id="L69">            return FALLBACK;</span>
+<span class="fc" id="L70">        } catch (ExecutionException e) {</span>
+<span class="fc" id="L71">            metrics.recordAiSuggestionError();</span>
+<span class="fc" id="L72">            return FALLBACK;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

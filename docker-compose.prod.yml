@@ -1,0 +1,236 @@
+# ── Production Docker Compose ─────────────────────────────────────────────────
+#
+# Used by the CD pipeline to deploy all services to staging and production.
+# Extends the base docker-compose.yml with production-grade resource limits,
+# restart policies, and log configuration.
+#
+# Usage:
+#   IMAGE_TAG=sha-abc1234 docker compose -f docker-compose.prod.yml up -d
+#
+# Environment variables (injected by CD workflow from GitHub Secrets):
+#   IMAGE_TAG          — Image tag to deploy (e.g. sha-abc1234 or v1.2.3)
+#   DB_URL             — JDBC URL for the application database
+#   DB_USERNAME        — Database username
+#   DB_PASSWORD        — Database password
+#   POSTGRES_PASSWORD  — PostgreSQL root password
+#   ALLOWED_ORIGINS    — Comma-separated CORS allowed origins
+#   SERVER_PORT        — Backend listen port (default: 8080)
+#
+# Security / multi-instance (set explicitly in prod — see docs/adr/001-multi-instance-scaling.md):
+#   TRUSTED_PROXIES           — CIDRs of nginx/ingress/LB that set X-Forwarded-For
+#                               (e.g. 10.0.0.0/8,172.16.0.0/12 or Docker bridge 172.18.0.0/16)
+#   RSA_PRIVATE_KEY_PEM       — JWT signing key (required in prod profile inside the app)
+#   RSA_PUBLIC_KEY_PEM        — JWT verification key
+#   JWT_SIGNING_KEY_ID        — JWS "kid" for new tokens (default profitflow-1)
+#   RSA_PREVIOUS_PUBLIC_KEY_PEM — Optional previous public key during rotation
+#   RSA_PREVIOUS_KEY_ID       — Optional "kid" for previous key
+#   REDIS_HOST / REDIS_PORT / REDIS_PASSWORD — When RATE_LIMIT_REDIS_ENABLED=true
+#   RATE_LIMIT_REDIS_ENABLED  — true for shared rate limits across API replicas
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: profitflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-profitflow}
+      POSTGRES_USER:     ${POSTGRES_USER:-profitflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - profitflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-profitflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "127.0.0.1:5432:5432"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/profitflow-api:${IMAGE_TAG:-latest}
+    container_name: profitflow-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL:            ${DB_URL:?DB_URL is required}
+      DB_USERNAME:       ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD:       ${DB_PASSWORD:?DB_PASSWORD is required}
+      ALLOWED_ORIGINS:   ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      SERVER_PORT:       ${SERVER_PORT:-8080}
+      TRUSTED_PROXIES:   ${TRUSTED_PROXIES:-127.0.0.1,::1}
+      RSA_PRIVATE_KEY_PEM: ${RSA_PRIVATE_KEY_PEM:?RSA_PRIVATE_KEY_PEM is required in prod}
+      RSA_PUBLIC_KEY_PEM:  ${RSA_PUBLIC_KEY_PEM:?RSA_PUBLIC_KEY_PEM is required in prod}
+      JWT_SIGNING_KEY_ID:  ${JWT_SIGNING_KEY_ID:-profitflow-1}
+      RSA_PREVIOUS_PUBLIC_KEY_PEM: ${RSA_PREVIOUS_PUBLIC_KEY_PEM:-}
+      RSA_PREVIOUS_KEY_ID:         ${RSA_PREVIOUS_KEY_ID:-}
+      REDIS_HOST:        ${REDIS_HOST:-localhost}
+      REDIS_PORT:        ${REDIS_PORT:-6379}
+      REDIS_PASSWORD:    ${REDIS_PASSWORD:-}
+      RATE_LIMIT_REDIS_ENABLED: ${RATE_LIMIT_REDIS_ENABLED:-false}
+      # JVM tuning — container-aware heap sizing
+      JAVA_OPTS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75.0
+        -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Readiness includes DB connectivity; safer for rolling deploys.
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health/readiness"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s    # Spring Boot needs time to run Flyway migrations
+    ports:
+      - "127.0.0.1:8080:8080"  # Not exposed publicly; nginx proxies to it
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=profitflow-api,env=prod"
+
+  # Optional Redis for distributed rate limits when RATE_LIMIT_REDIS_ENABLED=true
+  # (uncomment and set backend REDIS_HOST=redis). See docs/adr/001-multi-instance-scaling.md
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: profitflow-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:6379:6379"
+  #   command: ["redis-server", "--appendonly", "yes"]
+
+  # ── Frontend (nginx) ────────────────────────────────────────────────────────
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-your-org}/profitflow-ui:${IMAGE_TAG:-latest}
+    container_name: profitflow-ui
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "0.0.0.0:80:80"      # Public HTTP (TLS terminated upstream by load balancer)
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, CHOWN, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+      - /var/cache/nginx:size=64m
+      - /var/run:size=1m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: profitflow-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: profitflow-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:?GF_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_SERVER_ROOT_URL:         ${GRAFANA_ROOT_URL:-http://localhost:3001}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  profitflow_pgdata:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

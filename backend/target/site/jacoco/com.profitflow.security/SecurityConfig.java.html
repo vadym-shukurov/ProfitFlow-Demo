@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+
+import java.security.interfaces.RSAPublicKey;
+import java.util.Collection;
+
+/**
+ * Central Spring Security configuration.
+ *
+ * &lt;h2&gt;Auth flow&lt;/h2&gt;
+ * &lt;ol&gt;
+ *   &lt;li&gt;Client POSTs credentials to {@code POST /api/v1/auth/login}.&lt;/li&gt;
+ *   &lt;li&gt;Server authenticates via {@link AppUserDetailsService}, issues a signed
+ *       RS256 access JWT (15 min) and an opaque refresh token (7 days), and
+ *       returns both in the response body.&lt;/li&gt;
+ *   &lt;li&gt;Client includes the access token as {@code Authorization: Bearer &lt;token&gt;}.&lt;/li&gt;
+ *   &lt;li&gt;On 401, the client posts the refresh token to {@code POST /api/v1/auth/refresh}
+ *       to obtain a new access token without re-authenticating.&lt;/li&gt;
+ *   &lt;li&gt;On logout the client posts to {@code POST /api/v1/auth/logout} to revoke
+ *       the refresh token server-side.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;h2&gt;Role model&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code ANALYST} — read-only (all GET endpoints)&lt;/li&gt;
+ *   &lt;li&gt;{@code FINANCE_MANAGER} — read + write (all API endpoints)&lt;/li&gt;
+ *   &lt;li&gt;{@code ADMIN} — admin-only operations + all of the above&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h2&gt;Security headers&lt;/h2&gt;
+ * Every response carries: {@code X-Frame-Options: DENY},
+ * {@code X-Content-Type-Options: nosniff}, {@code Content-Security-Policy},
+ * {@code Strict-Transport-Security}, {@code Referrer-Policy}, and
+ * {@code Permissions-Policy}. OpenAPI/Swagger UI requires {@code ADMIN} when enabled unless
+ * {@code profitflow.security.openapi-unauthenticated-access=true} (CI export only).
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    private static final String PERMISSIONS_POLICY =
+            &quot;accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), &quot;
+            + &quot;microphone=(), payment=(), usb=()&quot;;
+
+    private final RateLimitingFilter                 rateLimitingFilter;
+    private final CorrelationIdFilter                correlationIdFilter;
+    private final SensitiveApiCacheHeaderFilter      sensitiveApiCacheHeaderFilter;
+    private final boolean                            openapiUnauthenticatedAccess;
+
+    public SecurityConfig(
+            RateLimitingFilter rateLimitingFilter,
+            CorrelationIdFilter correlationIdFilter,
+            SensitiveApiCacheHeaderFilter sensitiveApiCacheHeaderFilter,
+            @Value(&quot;${profitflow.security.openapi-unauthenticated-access:false}&quot;)
+<span class="fc" id="L87">            boolean openapiUnauthenticatedAccess) {</span>
+<span class="fc" id="L88">        this.rateLimitingFilter           = rateLimitingFilter;</span>
+<span class="fc" id="L89">        this.correlationIdFilter          = correlationIdFilter;</span>
+<span class="fc" id="L90">        this.sensitiveApiCacheHeaderFilter = sensitiveApiCacheHeaderFilter;</span>
+<span class="fc" id="L91">        this.openapiUnauthenticatedAccess = openapiUnauthenticatedAccess;</span>
+<span class="fc" id="L92">    }</span>
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+<span class="fc" id="L96">        return http</span>
+                // ── Session management ──────────────────────────────────────
+                // Stateless JWT — no HttpSession, no cookies
+<span class="fc" id="L99">                .csrf(AbstractHttpConfigurer::disable)</span>
+<span class="fc" id="L100">                .sessionManagement(sm -&gt;</span>
+<span class="fc" id="L101">                        sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+
+                // ── Endpoint authorisation ──────────────────────────────────
+<span class="fc" id="L104">                .authorizeHttpRequests(this::authorizeHttpRequests)</span>
+
+                // ── JWT resource server ─────────────────────────────────────
+<span class="fc" id="L107">                .oauth2ResourceServer(rs -&gt; rs</span>
+<span class="fc" id="L108">                        .jwt(jwt -&gt; jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))</span>
+
+                // ── Security headers ────────────────────────────────────────
+<span class="fc" id="L111">                .headers(headers -&gt; headers</span>
+<span class="fc" id="L112">                        .frameOptions(frame -&gt; frame.deny())</span>
+<span class="fc" id="L113">                        .contentTypeOptions(Customizer.withDefaults())</span>
+<span class="fc" id="L114">                        .addHeaderWriter((request, response) -&gt;</span>
+<span class="fc" id="L115">                                response.setHeader(&quot;Permissions-Policy&quot;, PERMISSIONS_POLICY))</span>
+<span class="fc" id="L116">                        .httpStrictTransportSecurity(hsts -&gt; hsts</span>
+<span class="fc" id="L117">                                .maxAgeInSeconds(31_536_000)</span>
+<span class="fc" id="L118">                                .includeSubDomains(true)</span>
+<span class="fc" id="L119">                                .preload(true))</span>
+<span class="fc" id="L120">                        .contentSecurityPolicy(csp -&gt; csp.policyDirectives(</span>
+                                &quot;default-src 'self'; &quot;
+                                + &quot;script-src 'self'; &quot;
+                                + &quot;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; &quot;
+                                + &quot;font-src 'self' https://fonts.gstatic.com; &quot;
+                                + &quot;img-src 'self' data:; &quot;
+                                + &quot;frame-ancestors 'none'; &quot;
+                                + &quot;base-uri 'self'; &quot;
+                                + &quot;form-action 'self'&quot;))
+<span class="fc" id="L129">                        .referrerPolicy(rp -&gt; rp.policy(</span>
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                )
+
+                // ── Custom filters ──────────────────────────────────────────
+<span class="fc" id="L134">                .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)</span>
+<span class="fc" id="L135">                .addFilterAfter(sensitiveApiCacheHeaderFilter, CorrelationIdFilter.class)</span>
+<span class="fc" id="L136">                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)</span>
+
+<span class="fc" id="L138">                .build();</span>
+    }
+
+    private void authorizeHttpRequests(
+            AuthorizeHttpRequestsConfigurer&lt;HttpSecurity&gt;.AuthorizationManagerRequestMatcherRegistry auth) {
+<span class="fc" id="L143">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/login&quot;).permitAll();</span>
+<span class="fc" id="L144">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/refresh&quot;).permitAll();</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (openapiUnauthenticatedAccess) {</span>
+<span class="nc" id="L146">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
+<span class="nc" id="L147">                    &quot;/swagger-ui.html&quot;).permitAll();</span>
+        } else {
+<span class="fc" id="L149">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
+<span class="fc" id="L150">                    &quot;/swagger-ui.html&quot;).hasRole(&quot;ADMIN&quot;);</span>
+        }
+<span class="fc" id="L152">        auth.requestMatchers(&quot;/actuator/health&quot;, &quot;/actuator/info&quot;,</span>
+                &quot;/actuator/health/liveness&quot;,
+<span class="fc" id="L154">                &quot;/actuator/health/readiness&quot;).permitAll();</span>
+<span class="fc" id="L155">        auth.requestMatchers(&quot;/actuator/prometheus&quot;, &quot;/actuator/metrics&quot;,</span>
+<span class="fc" id="L156">                &quot;/actuator/caches&quot;).hasRole(&quot;ADMIN&quot;);</span>
+<span class="fc" id="L157">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout&quot;)</span>
+<span class="fc" id="L158">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L159">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout/all&quot;)</span>
+<span class="fc" id="L160">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L161">        auth.requestMatchers(&quot;/api/v1/admin/**&quot;).hasRole(&quot;ADMIN&quot;);</span>
+<span class="fc" id="L162">        auth.requestMatchers(HttpMethod.GET, &quot;/api/v1/**&quot;)</span>
+<span class="fc" id="L163">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L164">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/ai/suggest&quot;)</span>
+<span class="fc" id="L165">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L166">        auth.requestMatchers(&quot;/api/v1/**&quot;)</span>
+<span class="fc" id="L167">                .hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L168">        auth.anyRequest().denyAll();</span>
+<span class="fc" id="L169">    }</span>
+
+    /**
+     * Maps the JWT {@code roles} claim (space-separated authority strings) back into
+     * Spring Security {@link org.springframework.security.core.GrantedAuthority} objects.
+     */
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+<span class="fc" id="L177">        JwtGrantedAuthoritiesConverter converter = new JwtGrantedAuthoritiesConverter();</span>
+<span class="fc" id="L178">        converter.setAuthoritiesClaimName(&quot;roles&quot;);</span>
+<span class="fc" id="L179">        converter.setAuthorityPrefix(&quot;&quot;);  // prefix already in the token</span>
+<span class="fc" id="L180">        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();</span>
+<span class="fc" id="L181">        jwtConverter.setJwtGrantedAuthoritiesConverter(converter);</span>
+<span class="fc" id="L182">        return jwtConverter;</span>
+    }
+
+    /**
+     * JWT decoder that validates signature, expiry, issuer, audience, AND revocation.
+     *
+     * &lt;p&gt;Validator chain (all must pass):
+     * &lt;ol&gt;
+     *   &lt;li&gt;Issuer ({@code iss}) — prevents tokens from other systems being replayed here.&lt;/li&gt;
+     *   &lt;li&gt;Audience ({@code aud}) — prevents cross-service token replay.&lt;/li&gt;
+     *   &lt;li&gt;Revocation ({@code jti} denylist) — immediately rejects tokens explicitly
+     *       revoked at logout, rather than waiting for the 15-minute natural expiry.&lt;/li&gt;
+     * &lt;/ol&gt;
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public JwtDecoder jwtDecoder(RsaKeyLoader keyLoader,
+                                 TokenRevocationService revocationService) {
+<span class="fc" id="L200">        NimbusJwtDecoder primary = buildJwtDecoder(keyLoader.publicKey(), revocationService);</span>
+<span class="fc" id="L201">        return keyLoader.previousVerificationPublicKey()</span>
+<span class="pc" id="L202">                .&lt;JwtDecoder&gt;map(prev -&gt; new FallbackJwtDecoder(primary,</span>
+<span class="nc" id="L203">                        buildJwtDecoder(prev, revocationService)))</span>
+<span class="fc" id="L204">                .orElse(primary);</span>
+    }
+
+    private static NimbusJwtDecoder buildJwtDecoder(RSAPublicKey publicKey,
+                                                    TokenRevocationService revocationService) {
+<span class="fc" id="L209">        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(publicKey).build();</span>
+<span class="fc" id="L210">        OAuth2TokenValidator&lt;Jwt&gt; issuerValidator =</span>
+<span class="fc" id="L211">                JwtValidators.createDefaultWithIssuer(JwtTokenService.AUDIENCE);</span>
+<span class="fc" id="L212">        OAuth2TokenValidator&lt;Jwt&gt; audienceValidator =</span>
+                new JwtClaimValidator&lt;Collection&lt;String&gt;&gt;(&quot;aud&quot;,
+<span class="nc bnc" id="L214" title="All 4 branches missed.">                        aud -&gt; aud != null &amp;&amp; aud.contains(JwtTokenService.AUDIENCE));</span>
+<span class="fc" id="L215">        OAuth2TokenValidator&lt;Jwt&gt; revocationValidator =</span>
+                new RevokedTokenValidator(revocationService);
+<span class="fc" id="L217">        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator&lt;&gt;(</span>
+                issuerValidator, audienceValidator, revocationValidator));
+<span class="fc" id="L219">        return decoder;</span>
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public JwtEncoder jwtEncoder(RsaKeyLoader keyLoader) {
+<span class="fc" id="L225">        RSAKey jwk = keyLoader.signingJwk();</span>
+<span class="fc" id="L226">        return new NimbusJwtEncoder(new ImmutableJWKSet&lt;&gt;(new JWKSet(jwk)));</span>
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // Cost factor 12 — ~250ms on modern hardware; intentionally slow for brute-force defence
+<span class="fc" id="L232">        return new BCryptPasswordEncoder(12);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

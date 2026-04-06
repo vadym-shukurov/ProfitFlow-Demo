@@ -1,0 +1,97 @@
+<div class="min-h-screen flex items-center justify-center pf-bg-surface px-4">
+  <div class="w-full max-w-sm">
+
+    <!-- Logo / brand -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-brand-600 mb-4 shadow-lg">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold pf-text-primary">ProfitFlow</h1>
+      <p class="pf-text-muted text-sm mt-1">Activity-Based Costing Platform</p>
+    </div>
+
+    <!-- Card -->
+    <div class="pf-card p-8">
+      <h2 class="text-lg font-semibold pf-text-primary mb-6">Sign in to your account</h2>
+
+      <!-- Error alert -->
+      @if (errorMessage()) {
+        <div class="pf-alert-error mb-5" role="alert">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"/>
+          </svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <form (ngSubmit)="submit()" #loginForm="ngForm" novalidate>
+        <!-- Username -->
+        <div class="mb-4">
+          <label for="username" class="block text-sm font-medium pf-text-secondary mb-1.5">
+            Username
+          </label>
+          <input
+            id="username"
+            type="text"
+            name="username"
+            autocomplete="username"
+            spellcheck="false"
+            [ngModel]="username()"
+            (ngModelChange)="username.set($event)"
+            class="pf-input w-full"
+            placeholder="Enter your username"
+            required
+            maxlength="100"
+          />
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label for="password" class="block text-sm font-medium pf-text-secondary mb-1.5">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+            class="pf-input w-full"
+            placeholder="Enter your password"
+            required
+            maxlength="128"
+          />
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          class="pf-btn-primary w-full flex items-center justify-center gap-2"
+          [disabled]="loading()"
+        >
+          @if (loading()) {
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <span>Signing in…</span>
+          } @else {
+            <span>Sign in</span>
+          }
+        </button>
+      </form>
+    </div>
+
+    <!-- Demo hint (visible only in non-prod environments) -->
+    <p class="text-center text-xs pf-text-muted mt-6">
+      Demo credentials: <code class="font-mono">admin / Admin1234!</code>
+    </p>
+  </div>
+</div>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultBusinessMetrics.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.infrastructure</a> &gt; <span class="el_source">DefaultBusinessMetrics.java</span></div><h1>DefaultBusinessMetrics.java</h1><pre class="source lang-java linenums">package com.profitflow.infrastructure;
+
+import com.profitflow.application.port.out.BusinessMetricsPort;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Micrometer-backed implementation of {@link BusinessMetricsPort}.
+ *
+ * &lt;h2&gt;Prometheus metrics exposed&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code profitflow_allocation_run_total} — counter, labels: {@code result=(success|failure)}&lt;/li&gt;
+ *   &lt;li&gt;{@code profitflow_allocation_run_duration_seconds} — histogram with P50/P95/P99&lt;/li&gt;
+ *   &lt;li&gt;{@code profitflow_cost_import_total} — counter, labels: {@code result}&lt;/li&gt;
+ *   &lt;li&gt;{@code profitflow_cost_created_total} — counter&lt;/li&gt;
+ *   &lt;li&gt;{@code profitflow_auth_login_total} — counter, labels: {@code result=(success|failure|locked)}&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * All metrics are scraped at {@code GET /actuator/prometheus} by the Prometheus instance
+ * defined in {@code docker-compose.yml}. SLO alert rules live in
+ * {@code monitoring/prometheus/alert-rules.yml}.
+ */
+@Component
+public class DefaultBusinessMetrics implements BusinessMetricsPort {
+
+    private final MeterRegistry registry;
+
+    private final Counter allocationRunSuccessCounter;
+    private final Counter allocationRunFailureCounter;
+    private final Timer   allocationRunTimer;
+
+    private final Counter costImportSuccessCounter;
+    private final Counter costImportFailureCounter;
+    private final Counter costCreatedCounter;
+
+    private final Counter loginSuccessCounter;
+    private final Counter loginFailureCounter;
+    private final Counter loginLockedCounter;
+
+    private final Counter refreshTokenReuseCounter;
+
+    private final Timer   aiSuggestTimer;
+    private final Counter aiSuggestTimeoutCounter;
+    private final Counter aiSuggestErrorCounter;
+
+<span class="fc" id="L50">    public DefaultBusinessMetrics(MeterRegistry registry) {</span>
+<span class="fc" id="L51">        this.registry = registry;</span>
+<span class="fc" id="L52">        allocationRunSuccessCounter = Counter.builder(&quot;profitflow.allocation.run&quot;)</span>
+<span class="fc" id="L53">                .description(&quot;Total allocation runs&quot;)</span>
+<span class="fc" id="L54">                .tag(&quot;result&quot;, &quot;success&quot;)</span>
+<span class="fc" id="L55">                .register(registry);</span>
+
+<span class="fc" id="L57">        allocationRunFailureCounter = Counter.builder(&quot;profitflow.allocation.run&quot;)</span>
+<span class="fc" id="L58">                .description(&quot;Total allocation runs&quot;)</span>
+<span class="fc" id="L59">                .tag(&quot;result&quot;, &quot;failure&quot;)</span>
+<span class="fc" id="L60">                .register(registry);</span>
+
+<span class="fc" id="L62">        allocationRunTimer = Timer.builder(&quot;profitflow.allocation.run.duration&quot;)</span>
+<span class="fc" id="L63">                .description(&quot;Allocation run execution time&quot;)</span>
+<span class="fc" id="L64">                .publishPercentiles(0.5, 0.95, 0.99)</span>
+<span class="fc" id="L65">                .register(registry);</span>
+
+<span class="fc" id="L67">        costImportSuccessCounter = Counter.builder(&quot;profitflow.cost.import&quot;)</span>
+<span class="fc" id="L68">                .description(&quot;CSV cost import attempts&quot;)</span>
+<span class="fc" id="L69">                .tag(&quot;result&quot;, &quot;success&quot;)</span>
+<span class="fc" id="L70">                .register(registry);</span>
+
+<span class="fc" id="L72">        costImportFailureCounter = Counter.builder(&quot;profitflow.cost.import&quot;)</span>
+<span class="fc" id="L73">                .description(&quot;CSV cost import attempts&quot;)</span>
+<span class="fc" id="L74">                .tag(&quot;result&quot;, &quot;failure&quot;)</span>
+<span class="fc" id="L75">                .register(registry);</span>
+
+<span class="fc" id="L77">        costCreatedCounter = Counter.builder(&quot;profitflow.cost.created&quot;)</span>
+<span class="fc" id="L78">                .description(&quot;Individual cost records created via POST&quot;)</span>
+<span class="fc" id="L79">                .register(registry);</span>
+
+<span class="fc" id="L81">        loginSuccessCounter = Counter.builder(&quot;profitflow.auth.login&quot;)</span>
+<span class="fc" id="L82">                .description(&quot;Authentication attempts&quot;)</span>
+<span class="fc" id="L83">                .tag(&quot;result&quot;, &quot;success&quot;)</span>
+<span class="fc" id="L84">                .register(registry);</span>
+
+<span class="fc" id="L86">        loginFailureCounter = Counter.builder(&quot;profitflow.auth.login&quot;)</span>
+<span class="fc" id="L87">                .description(&quot;Authentication attempts&quot;)</span>
+<span class="fc" id="L88">                .tag(&quot;result&quot;, &quot;failure&quot;)</span>
+<span class="fc" id="L89">                .register(registry);</span>
+
+<span class="fc" id="L91">        loginLockedCounter = Counter.builder(&quot;profitflow.auth.login&quot;)</span>
+<span class="fc" id="L92">                .description(&quot;Authentication attempts&quot;)</span>
+<span class="fc" id="L93">                .tag(&quot;result&quot;, &quot;locked&quot;)</span>
+<span class="fc" id="L94">                .register(registry);</span>
+
+<span class="fc" id="L96">        refreshTokenReuseCounter = Counter.builder(&quot;profitflow.auth.refresh.reuse&quot;)</span>
+<span class="fc" id="L97">                .description(&quot;Rotated refresh token presented again — possible theft; all sessions revoked&quot;)</span>
+<span class="fc" id="L98">                .register(registry);</span>
+
+<span class="fc" id="L100">        aiSuggestTimer = Timer.builder(&quot;profitflow.ai.suggest.duration&quot;)</span>
+<span class="fc" id="L101">                .description(&quot;AI expense suggestion latency&quot;)</span>
+<span class="fc" id="L102">                .publishPercentiles(0.5, 0.95, 0.99)</span>
+<span class="fc" id="L103">                .register(registry);</span>
+
+<span class="fc" id="L105">        aiSuggestTimeoutCounter = Counter.builder(&quot;profitflow.ai.suggest&quot;)</span>
+<span class="fc" id="L106">                .description(&quot;AI suggestion outcomes&quot;)</span>
+<span class="fc" id="L107">                .tag(&quot;result&quot;, &quot;timeout&quot;)</span>
+<span class="fc" id="L108">                .register(registry);</span>
+
+<span class="fc" id="L110">        aiSuggestErrorCounter = Counter.builder(&quot;profitflow.ai.suggest&quot;)</span>
+<span class="fc" id="L111">                .description(&quot;AI suggestion outcomes&quot;)</span>
+<span class="fc" id="L112">                .tag(&quot;result&quot;, &quot;error&quot;)</span>
+<span class="fc" id="L113">                .register(registry);</span>
+<span class="fc" id="L114">    }</span>
+
+    @Override
+    public void recordAllocationSuccess(long durationNanos) {
+<span class="nc" id="L118">        allocationRunSuccessCounter.increment();</span>
+<span class="nc" id="L119">        allocationRunTimer.record(durationNanos, TimeUnit.NANOSECONDS);</span>
+<span class="nc" id="L120">    }</span>
+
+    @Override
+    public void recordAllocationFailure() {
+<span class="nc" id="L124">        allocationRunFailureCounter.increment();</span>
+<span class="nc" id="L125">    }</span>
+
+    @Override
+    public void recordCostImportSuccess() {
+<span class="nc" id="L129">        costImportSuccessCounter.increment();</span>
+<span class="nc" id="L130">    }</span>
+
+    @Override
+    public void recordCostImportFailure() {
+<span class="nc" id="L134">        costImportFailureCounter.increment();</span>
+<span class="nc" id="L135">    }</span>
+
+    @Override
+    public void recordCostCreated() {
+<span class="nc" id="L139">        costCreatedCounter.increment();</span>
+<span class="nc" id="L140">    }</span>
+
+    @Override
+    public void recordLoginSuccess() {
+<span class="nc" id="L144">        loginSuccessCounter.increment();</span>
+<span class="nc" id="L145">    }</span>
+
+    @Override
+    public void recordLoginFailure() {
+<span class="nc" id="L149">        loginFailureCounter.increment();</span>
+<span class="nc" id="L150">    }</span>
+
+    @Override
+    public void recordLoginLocked() {
+<span class="nc" id="L154">        loginLockedCounter.increment();</span>
+<span class="nc" id="L155">    }</span>
+
+    @Override
+    public void recordRefreshTokenReuseDetected() {
+<span class="nc" id="L159">        refreshTokenReuseCounter.increment();</span>
+<span class="nc" id="L160">    }</span>
+
+    @Override
+    public void recordAiSuggestionSuccess(long durationNanos) {
+<span class="nc" id="L164">        aiSuggestTimer.record(durationNanos, TimeUnit.NANOSECONDS);</span>
+<span class="nc" id="L165">    }</span>
+
+    @Override
+    public void recordAiSuggestionTimeout() {
+<span class="nc" id="L169">        aiSuggestTimeoutCounter.increment();</span>
+<span class="nc" id="L170">    }</span>
+
+    @Override
+    public void recordAiSuggestionError() {
+<span class="nc" id="L174">        aiSuggestErrorCounter.increment();</span>
+<span class="nc" id="L175">    }</span>
+
+    @Override
+    public void recordOutboxEventDispatched(String eventType) {
+<span class="nc" id="L179">        registry.counter(&quot;profitflow.outbox.dispatched&quot;, &quot;type&quot;, eventType).increment();</span>
+<span class="nc" id="L180">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

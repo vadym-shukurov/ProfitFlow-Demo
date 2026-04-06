@@ -1,0 +1,30 @@
+# Low-intensity load smoke — no credential stuffing, no allocation hammering.
+# Targets local/staging API only; run after the backend is up (see e2e/scripts/ci-with-servers.sh).
+config:
+  # Replaced by e2e/scripts/ci-with-servers.sh (must match PLAYWRIGHT_API_BASE_URL / API_PORT).
+  target: "__API_TARGET__"
+  plugins:
+    expect: {}
+  phases:
+    - duration: 20
+      arrivalRate: 1
+      name: "Warm-up"
+  http:
+    timeout: 25
+
+scenarios:
+  - name: "Health"
+    weight: 3
+    flow:
+      - get:
+          url: "/actuator/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Unauthenticated API surface"
+    weight: 1
+    flow:
+      - get:
+          url: "/api/v1/activities"
+          expect:
+            - statusCode: 401

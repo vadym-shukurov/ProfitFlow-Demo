@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Base layer — global resets
+   ──────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply min-h-full antialiased bg-surface-muted text-content-primary;
+  }
+
+  code {
+    @apply rounded bg-divider-muted px-1 py-0.5 font-mono text-xs text-content-secondary;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Component layer — design-token-backed semantic classes.
+   All templates reference these names rather than raw palette values, so a
+   future theme change (e.g. dark mode) only requires updating this file and
+   tailwind.config.js — no template edits.
+   ──────────────────────────────────────────────────────────────────────────── */
+@layer components {
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+
+  .pf-page-title    { @apply text-lg font-semibold text-content-primary; }
+  .pf-page-subtitle { @apply max-w-3xl text-sm text-content-body; }
+  .pf-section-title { @apply text-sm font-semibold text-content-secondary; }
+  .pf-section-subtitle { @apply text-xs text-content-muted; }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+  .pf-btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2
+           text-sm font-medium text-white shadow-sm transition
+           hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .pf-btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-divider
+           bg-surface px-4 py-2 text-sm font-medium text-content-secondary shadow-sm transition
+           hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .pf-btn-sm-primary {
+    @apply rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm
+           hover:bg-brand-700 disabled:opacity-60;
+  }
+
+  .pf-btn-sm-secondary {
+    @apply rounded-lg border border-divider bg-surface px-3 py-1.5 text-sm
+           font-medium text-content-secondary shadow-sm hover:bg-surface-muted;
+  }
+
+  .pf-btn-link {
+    @apply text-sm font-medium text-brand-700 hover:text-brand-800 disabled:opacity-50;
+  }
+
+  .pf-btn-remove {
+    @apply text-xs font-medium text-status-error-action hover:text-status-error-action-hover;
+  }
+
+  /* ── Form controls ───────────────────────────────────────────────────────── */
+
+  .pf-input {
+    @apply w-full rounded-lg border border-divider bg-surface px-3 py-2 text-sm shadow-sm
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .pf-textarea {
+    @apply pf-input min-h-[140px] font-mono text-xs;
+  }
+
+  .pf-select {
+    @apply w-full rounded-lg border border-divider bg-surface px-2 py-1.5 text-sm;
+  }
+
+  .pf-input-compact {
+    @apply w-28 rounded-lg border border-divider px-2 py-1.5 text-sm tabular-nums;
+  }
+
+  .pf-label { @apply block text-xs font-medium text-content-muted; }
+
+  /* ── Feedback / alerts ───────────────────────────────────────────────────── */
+
+  .pf-alert-error {
+    @apply rounded-xl border border-status-error-border bg-status-error-surface
+           px-4 py-3 text-sm text-status-error-text;
+  }
+
+  .pf-alert-warning {
+    @apply rounded-xl border border-status-warning-border bg-status-warning-surface
+           px-4 py-3 text-sm text-status-warning-text;
+  }
+
+  /* ── Cards ───────────────────────────────────────────────────────────────── */
+
+  .pf-card {
+    @apply rounded-xl border border-divider bg-surface p-4 shadow-shell;
+  }
+
+  .pf-card-section {
+    @apply space-y-4 rounded-xl border border-divider bg-surface-muted p-5;
+  }
+
+  /* ── Stat cards ──────────────────────────────────────────────────────────── */
+
+  .pf-stat-card  { @apply pf-card; }
+  .pf-stat-label { @apply text-xs font-medium uppercase tracking-wide text-content-muted; }
+  .pf-stat-value { @apply mt-1 text-xl font-semibold tabular-nums text-content-primary; }
+
+  /* ── Data tables ─────────────────────────────────────────────────────────── */
+
+  .pf-table-wrapper { @apply overflow-x-auto rounded-xl border border-divider; }
+  .pf-table         { @apply min-w-full divide-y divide-divider text-sm; }
+  .pf-thead         { @apply bg-surface-muted text-left text-xs font-semibold uppercase tracking-wide text-content-muted; }
+  .pf-th            { @apply px-4 py-3; }
+  .pf-th-sm         { @apply px-3 py-2; }
+  .pf-tbody         { @apply divide-y divide-divider-muted bg-surface; }
+  .pf-tr            { @apply hover:bg-surface-muted; }
+  .pf-td            { @apply px-4 py-3; }
+  .pf-td-sm         { @apply px-3 py-2; }
+
+  /* ── Empty state ─────────────────────────────────────────────────────────── */
+
+  .pf-empty-state {
+    @apply flex min-h-[220px] flex-col items-center justify-center rounded-xl
+           border border-dashed border-divider bg-surface-muted/60 text-center;
+  }
+
+  /* ── Progress bar (product profitability table) ───────────────────────────── */
+
+  .pf-progress-track { @apply h-2 w-32 overflow-hidden rounded-full bg-divider-muted; }
+  .pf-progress-bar   { @apply h-full rounded-full bg-brand-500; }
+}

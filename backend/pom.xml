@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.profitflow</groupId>
+    <artifactId>profitflow-api</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>profitflow-api</name>
+    <description>ProfitFlow — Activity-Based Costing platform API</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- Quality gate thresholds — enforced in CI by the verify phase -->
+        <jacoco.line.coverage.minimum>0.85</jacoco.line.coverage.minimum>
+        <jacoco.branch.coverage.minimum>0.75</jacoco.branch.coverage.minimum>
+        <!-- Plugin versions pinned explicitly for reproducible builds -->
+        <!-- 0.8.13+ supports Java 25 class file format (version 69) -->
+        <jacoco.version>0.8.13</jacoco.version>
+        <!-- 4.9.8+ bundles ASM that understands Java 25 (class file v69); older SpotBugs fails verify on JDK 25 -->
+        <spotbugs.version>4.9.8.3</spotbugs.version>
+        <checkstyle.version>3.3.1</checkstyle.version>
+        <owasp.dependency-check.version>9.2.0</owasp.dependency-check.version>
+        <!-- Skip Docker-based ITs locally; CI sets -DskipITs=false -->
+        <skipITs>true</skipITs>
+        <pmd.version>3.26.0</pmd.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Security: JWT RS256 authentication -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <!-- Rate limiting (Bucket4j in-memory; optional Redis backend for multi-node) -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.7.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- OpenAPI 3 — gated via springdoc.api-docs.enabled (default false in application.yml) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+        <!-- RFC 4180 compliant CSV parsing for safe import of user-supplied data -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.11.0</version>
+        </dependency>
+        <!-- AOP for audit logging and metrics -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <!-- Spring Cache abstraction + Caffeine in-process cache for read-heavy endpoints -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+        <!-- Micrometer Prometheus registry for SLI/SLO scraping -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <!-- Included at runtime so the packaged JAR can start with profile "e2e" (in-memory DB). -->
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Spring Security Test — provides @WithMockUser for @WebMvcTest slices -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.19.7</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- JDK / Maven baseline for reproducible CI and local builds -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>21</version>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>3.6.3</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Spring Boot fat JAR -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Unit test runner: exclude integration tests from the default 'test' phase.
+                 Run integration tests explicitly in CI with: mvn verify -Dgroups=integration -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>integration</excludedGroups>
+                    <!-- Allow Mockito/ByteBuddy dynamic agent loading on newer JDKs (e.g. 25). -->
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true</argLine>
+                    <!-- Output format compatible with GitHub Actions test reporter -->
+                    <reportFormat>plain</reportFormat>
+                    <useFile>false</useFile>
+                </configuration>
+            </plugin>
+
+            <!-- Integration tests (*IT.java, JUnit @Tag("integration")) — Docker required -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skipITs>${skipITs}</skipITs>
+                    <groups>integration</groups>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- ── JaCoCo: code coverage instrumentation ──────────────────── -->
+            <!-- Attach the JaCoCo agent during 'test' phase and enforce
+                 minimum thresholds during 'verify' phase.
+                 Gate values: 85% line, 75% branch (see properties above). -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <!-- Attach agent before tests -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <!-- Generate XML + HTML reports after tests -->
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                    <!-- Fail the build if coverage drops below the minimum -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <!--
+                              Classes excluded from the coverage gate (class-file ANT globs).
+                              These classes are either:
+                              (a) bootstrap/seeder code not part of the production path,
+                              (b) JPA entity classes with no business logic (covered by
+                                  ProfitflowPostgresIntegrationIT), or
+                              (c) application-model DTO records (data shapes only).
+                            -->
+                            <excludes>
+                                <exclude>com/profitflow/infrastructure/DemoDataSeeder*.class</exclude>
+                                <exclude>com/profitflow/ProfitflowApplication*.class</exclude>
+                                <exclude>com/profitflow/adapter/out/persistence/entity/*Entity.class</exclude>
+                                <exclude>com/profitflow/adapter/out/persistence/PersistenceMapper.class</exclude>
+                                <exclude>com/profitflow/application/model/*.class</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.line.coverage.minimum}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.branch.coverage.minimum}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ── SpotBugs: static analysis ───────────────────────────────── -->
+            <!-- Detect common Java bugs: null dereferences, resource leaks,
+                 SQL injection via string concat, etc.
+                 Fail the build on HIGH or MEDIUM priority findings. -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.version}</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <!-- HIGH = 1, MEDIUM = 2 — fail on any HIGH or MEDIUM bug -->
+                    <threshold>Medium</threshold>
+                    <!-- Exclude known false positives (add as needed) -->
+                    <excludeFilterFile>${project.basedir}/src/main/resources/spotbugs-exclude.xml</excludeFilterFile>
+                    <xmlOutput>true</xmlOutput>
+                    <failOnError>true</failOnError>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ── Checkstyle: style enforcement ───────────────────────────── -->
+            <!-- Enforces a consistent coding style.
+                 The configuration extends Google Java Style with finance-specific
+                 additions (e.g. mandatory Javadoc on public methods). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${checkstyle.version}</version>
+                <configuration>
+                    <configLocation>checkstyle.xml</configLocation>
+                    <consoleOutput>true</consoleOutput>
+                    <failsOnError>true</failsOnError>
+                    <violationSeverity>warning</violationSeverity>
+                    <!-- Exclude generated code -->
+                    <excludes>**/module-info.java</excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Copy-paste detection (main sources). Policy: no large duplicate blocks. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>${pmd.version}</version>
+                <configuration>
+                    <linkXRef>false</linkXRef>
+                    <sourceEncoding>${project.build.sourceEncoding}</sourceEncoding>
+                    <minimumTokens>100</minimumTokens>
+                    <targetJdk>${java.version}</targetJdk>
+                    <printFailingErrors>true</printFailingErrors>
+                    <!-- CPD should only scan Java sources (avoid resources like local dev keys). -->
+                    <includes>**/*.java</includes>
+                    <excludes>**/src/main/resources/**</excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>cpd-check</id>
+                        <phase>verify</phase>
+                        <goals><goal>cpd-check</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ── Reporting (mvn site) ──────────────────────────────────────────── -->
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.version}</version>
+            </plugin>
+        </plugins>
+    </reporting>
+
+    <!-- ── Profiles ──────────────────────────────────────────────────────── -->
+    <profiles>
+        <!-- Local development: activate local profile via Spring; no Maven changes required. -->
+        <profile>
+            <id>local</id>
+        </profile>
+
+        <!-- OpenAPI export: packaging/config toggles only. -->
+        <profile>
+            <id>openapi-export</id>
+        </profile>
+
+        <!-- Packaged E2E / smoke: configuration toggles only (H2 is already runtime). -->
+        <profile>
+            <id>e2e</id>
+        </profile>
+
+        <!-- OWASP dependency vulnerability scan — activated explicitly in CI
+             with: mvn verify -Powasp-check
+             Separated into a profile because it requires internet access to
+             download the NVD CVE database and takes ~5 minutes on a cold cache. -->
+        <profile>
+            <id>owasp-check</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${owasp.dependency-check.version}</version>
+                        <configuration>
+                            <!-- Fail on CVSS score ≥ 7.0 (HIGH or CRITICAL).
+                                 Finance applications must have zero known HIGH/CRITICAL CVEs. -->
+                            <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <format>ALL</format>
+                            <!-- NVD API key reduces rate-limiting in CI (set via secret) -->
+                            <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                            <!-- Cache the NVD database between CI runs -->
+                            <dataDirectory>${env.HOME}/.m2/dependency-check-data</dataDirectory>
+                            <suppressionFile>owasp-suppressions.xml</suppressionFile>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>owasp-check</id>
+                                <phase>verify</phase>
+                                <goals><goal>check</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

@@ -1,0 +1,119 @@
+<div class="space-y-8">
+  <!-- Page header + run button -->
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="space-y-1">
+      <h2 class="pf-page-title">CFO Dashboard</h2>
+      <p class="pf-page-subtitle">
+        Run the ABC allocation engine to visualise how general-ledger costs flow through activities
+        into final products or services.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="pf-btn-primary shrink-0 px-5 py-2.5 font-semibold"
+      (click)="store.runAllocation()"
+      [disabled]="store.running() || store.loading()"
+    >
+      @if (store.running()) { Running… } @else { Run allocation }
+    </button>
+  </div>
+
+  <!-- Error banner -->
+  @if (store.error(); as err) {
+    <div class="pf-alert-error" role="alert">{{ err }}</div>
+  }
+
+  <!-- Empty state -->
+  @if (!store.hasResult() && !store.running()) {
+    <div class="pf-empty-state">
+      <p class="text-sm font-medium text-content-secondary">No allocation run yet</p>
+      <p class="mt-1 text-sm text-content-muted">
+        Click <strong>Run allocation</strong> to generate the Sankey diagram.
+      </p>
+    </div>
+  }
+
+  @if (store.hasResult()) {
+    <!-- Summary stat cards -->
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div class="pf-stat-card">
+        <p class="pf-stat-label">Total GL spend</p>
+        <p class="pf-stat-value">{{ store.totalResourceSpend() | number: '1.0-0' }}</p>
+      </div>
+      <div class="pf-stat-card">
+        <p class="pf-stat-label">Products costed</p>
+        <p class="pf-stat-value">{{ store.productRows().length }}</p>
+      </div>
+      <div class="pf-stat-card">
+        <p class="pf-stat-label">Sankey flows</p>
+        <p class="pf-stat-value">{{ store.sankeyData().links.length }}</p>
+      </div>
+
+      <!-- Unallocated card — warning state when count > 0 -->
+      <div
+        class="rounded-xl border p-4 shadow-shell"
+        [class]="
+          store.unallocatedCount() > 0
+            ? 'border-status-warning-border bg-status-warning-surface'
+            : 'border-divider bg-surface'
+        "
+      >
+        <p class="pf-stat-label">Unallocated</p>
+        <p
+          class="mt-1 text-xl font-semibold tabular-nums"
+          [class]="store.unallocatedCount() > 0 ? 'text-status-warning-text' : 'text-content-primary'"
+        >
+          {{ store.unallocatedCount() }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Sankey diagram -->
+    @if (store.sankeyData().nodes.length > 0) {
+      <section class="space-y-3">
+        <h3 class="pf-section-title">Cost flow: resources → activities → products</h3>
+        <div
+          [appEcharts]="sankeyOption()"
+          class="h-[440px] w-full rounded-xl border border-divider bg-surface shadow-shell"
+        ></div>
+      </section>
+    }
+
+    <!-- Product profitability table -->
+    @if (store.productRows().length > 0) {
+      <section class="space-y-3">
+        <h3 class="pf-section-title">Product profitability</h3>
+        <div class="pf-table-wrapper">
+          <table class="pf-table">
+            <thead class="pf-thead">
+              <tr>
+                <th class="pf-th">Product / service</th>
+                <th class="pf-th">Loaded cost</th>
+                <th class="pf-th">Share of total</th>
+                <th class="pf-th"></th>
+              </tr>
+            </thead>
+            <tbody class="pf-tbody">
+              @for (row of store.productRows(); track row.name) {
+                <tr class="pf-tr">
+                  <td class="pf-td font-medium text-content-primary">{{ row.name }}</td>
+                  <td class="pf-td tabular-nums text-content-secondary">
+                    {{ row.currencyCode }} {{ row.cost | number: '1.2-2' }}
+                  </td>
+                  <td class="pf-td tabular-nums text-content-secondary">
+                    {{ row.pct | number: '1.1-1' }}%
+                  </td>
+                  <td class="pf-td">
+                    <div class="pf-progress-track">
+                      <div class="pf-progress-bar" [style.width.%]="row.pct"></div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  }
+</div>

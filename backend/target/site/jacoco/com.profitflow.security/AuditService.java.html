@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuditService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">AuditService.java</span></div><h1>AuditService.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import com.profitflow.adapter.out.persistence.entity.AuditLogEntity;
+import com.profitflow.adapter.out.persistence.jpa.AuditLogEntityRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Writes immutable audit log entries for every state-changing operation.
+ *
+ * &lt;h2&gt;Critical vs. best-effort audit writes&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link #record} — best-effort; swallows exceptions so a DB failure does
+ *       not break the business operation. Use for non-privileged write operations.&lt;/li&gt;
+ *   &lt;li&gt;{@link #recordCritical} — fail-hard; throws {@link AuditWriteException} if
+ *       the audit entry cannot be persisted. Use for privileged operations (admin
+ *       actions, allocation runs, bulk imports) where an unrecorded action is a
+ *       compliance violation.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h2&gt;Transaction isolation&lt;/h2&gt;
+ * Audit writes use {@link Propagation#REQUIRES_NEW} so that a rolled-back business
+ * transaction does not roll back the audit entry — a failed attempt is itself
+ * a security-relevant event and must be preserved.
+ */
+@Service
+public class AuditService {
+
+<span class="fc" id="L38">    private static final Logger log = LoggerFactory.getLogger(AuditService.class);</span>
+
+    private final AuditLogEntityRepository auditLogRepo;
+    private final ClientIpResolverPort     clientIpResolver;
+
+    public AuditService(AuditLogEntityRepository auditLogRepo,
+<span class="fc" id="L44">                        ClientIpResolverPort clientIpResolver) {</span>
+<span class="fc" id="L45">        this.auditLogRepo    = auditLogRepo;</span>
+<span class="fc" id="L46">        this.clientIpResolver = clientIpResolver;</span>
+<span class="fc" id="L47">    }</span>
+
+    /**
+     * Records a completed operation — best-effort. Swallows DB exceptions so
+     * the business operation is never blocked by an audit failure.
+     *
+     * @param action     short upper-snake-case identifier, e.g. {@code &quot;ALLOCATION_RUN_EXECUTED&quot;}
+     * @param entityType entity class name, or {@code null} for bulk ops
+     * @param entityId   primary key of the affected entity, or {@code null}
+     * @param details    freeform summary string (max 2000 chars)
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void record(String action, String entityType, String entityId, String details) {
+        try {
+<span class="fc" id="L61">            persist(action, entityType, entityId, details);</span>
+<span class="fc" id="L62">        } catch (Exception ex) {</span>
+<span class="fc" id="L63">            log.error(&quot;AUDIT_WRITE_FAILED action={} correlationId={}: {}&quot;,</span>
+<span class="fc" id="L64">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
+<span class="fc" id="L65">        }</span>
+<span class="fc" id="L66">    }</span>
+
+    /**
+     * Records a privileged operation — fail-hard. Throws if the audit entry
+     * cannot be persisted, causing the enclosing transaction to roll back.
+     *
+     * &lt;p&gt;Use this for operations that &lt;em&gt;must&lt;/em&gt; appear in the audit trail
+     * as a compliance requirement (e.g. admin role changes, allocation runs,
+     * CSV bulk imports, rule replacements).
+     *
+     * @throws AuditWriteException if the audit entry cannot be written
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordCritical(String action, String entityType, String entityId, String details) {
+        try {
+<span class="fc" id="L81">            persist(action, entityType, entityId, details);</span>
+<span class="fc" id="L82">        } catch (Exception ex) {</span>
+<span class="fc" id="L83">            String msg = String.format(</span>
+                    &quot;CRITICAL_AUDIT_WRITE_FAILED action=%s correlationId=%s: %s&quot;,
+<span class="fc" id="L85">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
+<span class="fc" id="L86">            log.error(msg);</span>
+<span class="fc" id="L87">            throw new AuditWriteException(msg, ex);</span>
+<span class="fc" id="L88">        }</span>
+<span class="fc" id="L89">    }</span>
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private void persist(String action, String entityType, String entityId, String details) {
+<span class="fc" id="L94">        String username      = resolveUsername();</span>
+<span class="fc" id="L95">        String ip            = clientIpResolver.resolveFromContext();</span>
+<span class="fc" id="L96">        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+
+<span class="fc" id="L98">        AuditLogEntity entry = new AuditLogEntity(</span>
+<span class="fc" id="L99">                UUID.randomUUID(),</span>
+<span class="fc" id="L100">                Instant.now(),</span>
+                username,
+                ip,
+                action,
+                entityType,
+                entityId,
+<span class="fc" id="L106">                truncate(details, 2000),</span>
+                correlationId);
+
+<span class="fc" id="L109">        auditLogRepo.save(entry);</span>
+<span class="fc" id="L110">    }</span>
+
+    private static String resolveUsername() {
+<span class="fc" id="L113">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L114" title="1 of 4 branches missed.">        if (auth != null &amp;&amp; auth.isAuthenticated()) {</span>
+<span class="fc" id="L115">            return auth.getName();</span>
+        }
+<span class="fc" id="L117">        return &quot;ANONYMOUS&quot;;</span>
+    }
+
+    private static String truncate(String s, int maxLength) {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (s == null) {</span>
+<span class="fc" id="L122">            return null;</span>
+        }
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        return s.length() &lt;= maxLength ? s : s.substring(0, maxLength - 3) + &quot;...&quot;;</span>
+    }
+
+    // ── Exception types ───────────────────────────────────────────────────────
+
+    /** Thrown by {@link #recordCritical} when an audit entry cannot be persisted. */
+    public static class AuditWriteException extends RuntimeException {
+        public AuditWriteException(String message, Throwable cause) {
+<span class="fc" id="L132">            super(message, cause);</span>
+<span class="fc" id="L133">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

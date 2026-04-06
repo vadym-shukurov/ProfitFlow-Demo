@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+      OWASP Dependency Check suppressions for ProfitFlow.
+
+      IMPORTANT: Every suppression must:
+      1. Include the CVE ID (e.g. CVE-2024-XXXXX).
+      2. Reference a ticket/ADR confirming the library is not reachable by
+         an attacker through the code paths we expose.
+      3. Include an expiry date so suppressions don't silently outlive their
+         validity. Set to 90 days from the date of adding.
+
+      Example (uncomment and adapt when needed):
+
+      <suppress until="2025-06-01Z">
+          <notes><![CDATA[
+              CVE-2024-12345: Affects feature X which is not used in ProfitFlow
+              (we use version Y of the API, not the vulnerable Z interface).
+              Ticket: https://github.com/org/repo/issues/42
+          ]]></notes>
+          <packageUrl regex="true">^pkg:maven/com\.example/example-lib@.*$</packageUrl>
+          <cve>CVE-2024-12345</cve>
+      </suppress>
+    -->
+</suppressions>

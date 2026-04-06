@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProductPersistenceAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.adapter.out.persistence</a> &gt; <span class="el_source">ProductPersistenceAdapter.java</span></div><h1>ProductPersistenceAdapter.java</h1><pre class="source lang-java linenums">package com.profitflow.adapter.out.persistence;
+
+import com.profitflow.adapter.out.persistence.jpa.ProductEntityRepository;
+import com.profitflow.application.port.out.ProductRepositoryPort;
+import com.profitflow.domain.Product;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Component
+public class ProductPersistenceAdapter implements ProductRepositoryPort {
+
+    private final ProductEntityRepository repository;
+
+<span class="fc" id="L17">    public ProductPersistenceAdapter(ProductEntityRepository repository) {</span>
+<span class="fc" id="L18">        this.repository = repository;</span>
+<span class="fc" id="L19">    }</span>
+
+    @Override
+    public List&lt;Product&gt; findAll() {
+<span class="nc" id="L23">        return repository.findAll().stream().map(PersistenceMapper::toProduct).toList();</span>
+    }
+
+    @Override
+    public Optional&lt;Product&gt; findById(String id) {
+<span class="nc" id="L28">        return repository.findById(UUID.fromString(id)).map(PersistenceMapper::toProduct);</span>
+    }
+
+    @Override
+    public Product save(Product product) {
+<span class="nc" id="L33">        return PersistenceMapper.toProduct(</span>
+<span class="nc" id="L34">                repository.save(PersistenceMapper.toProductEntity(product)));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

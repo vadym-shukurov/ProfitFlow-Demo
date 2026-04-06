@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuditAspect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">AuditAspect.java</span></div><h1>AuditAspect.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import com.profitflow.application.audit.AuditedOperation;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.stereotype.Component;
+
+/**
+ * AOP aspect that intercepts methods annotated with
+ * {@link com.profitflow.application.audit.AuditedOperation} and
+ * writes an audit log entry &lt;em&gt;after&lt;/em&gt; each call (whether successful or not).
+ *
+ * &lt;h2&gt;Entity ID extraction&lt;/h2&gt;
+ * If {@link AuditedOperation#entityIdSpEL()} is set, the expression is evaluated
+ * against the method's return value (using {@code #result} as root) and the
+ * result is stored as the {@code entityId} in the audit entry.
+ *
+ * &lt;h2&gt;Critical audit mode&lt;/h2&gt;
+ * When {@link AuditedOperation#critical()} is {@code true}, the aspect delegates
+ * to {@link AuditService#recordCritical}, which throws if the audit entry cannot
+ * be persisted — causing the enclosing transaction to roll back.
+ *
+ * &lt;h2&gt;Aspect ordering&lt;/h2&gt;
+ * {@code @Order(Ordered.LOWEST_PRECEDENCE)} ensures this aspect runs &lt;em&gt;inside&lt;/em&gt;
+ * the {@code @Transactional} advisor (which uses {@code Integer.MAX_VALUE - 1}).
+ * This is critical for the fail-hard guarantee: if {@code recordCritical} throws,
+ * the surrounding business transaction is still active and can be rolled back.
+ * Without explicit ordering, a Spring version change could cause the audit to run
+ * &lt;em&gt;after&lt;/em&gt; the transaction commits — making the guarantee hollow.
+ */
+@Aspect
+@Component
+@Order(Ordered.LOWEST_PRECEDENCE)
+public class AuditAspect {
+
+<span class="fc" id="L45">    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);</span>
+
+<span class="fc" id="L47">    private static final ExpressionParser SPEL = new SpelExpressionParser();</span>
+
+    private final AuditService auditService;
+
+<span class="fc" id="L51">    public AuditAspect(AuditService auditService) {</span>
+<span class="fc" id="L52">        this.auditService = auditService;</span>
+<span class="fc" id="L53">    }</span>
+
+    @Around(&quot;@annotation(audited)&quot;)
+    public Object around(ProceedingJoinPoint pjp, AuditedOperation audited) throws Throwable {
+<span class="fc" id="L57">        Throwable error  = null;</span>
+<span class="fc" id="L58">        Object    result = null;</span>
+
+        try {
+<span class="fc" id="L61">            result = pjp.proceed();</span>
+<span class="fc" id="L62">        } catch (Throwable t) {</span>
+<span class="fc" id="L63">            error = t;</span>
+<span class="fc" id="L64">        }</span>
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        String details  = error != null ? &quot;FAILED: &quot; + error.getClass().getSimpleName() : &quot;OK&quot;;</span>
+<span class="fc" id="L67">        String entityId = extractEntityId(audited.entityIdSpEL(), result);</span>
+
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (audited.critical()) {</span>
+<span class="fc" id="L70">            auditService.recordCritical(audited.action(), audited.entityType(), entityId, details);</span>
+        } else {
+<span class="fc" id="L72">            auditService.record(audited.action(), audited.entityType(), entityId, details);</span>
+        }
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (error != null) {</span>
+<span class="fc" id="L76">            throw error;</span>
+        }
+<span class="fc" id="L78">        return result;</span>
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Evaluates the SpEL expression against the method result to extract an entity ID.
+     *
+     * @param spel   the expression, or blank to skip evaluation
+     * @param result the method return value used as the SpEL root object
+     * @return the extracted entity ID string, or {@code null} if none
+     */
+    private static String extractEntityId(String spel, Object result) {
+<span class="pc bpc" id="L91" title="1 of 6 branches missed.">        if (spel == null || spel.isBlank() || result == null) {</span>
+<span class="fc" id="L92">            return null;</span>
+        }
+        try {
+<span class="fc" id="L95">            Expression expr  = SPEL.parseExpression(spel);</span>
+<span class="fc" id="L96">            StandardEvaluationContext ctx = new StandardEvaluationContext(result);</span>
+<span class="fc" id="L97">            ctx.setVariable(&quot;result&quot;, result);</span>
+<span class="fc" id="L98">            Object value = expr.getValue(ctx);</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">            return value != null ? value.toString() : null;</span>
+<span class="fc" id="L100">        } catch (Exception ex) {</span>
+<span class="fc" id="L101">            log.warn(&quot;Failed to evaluate entityIdSpEL='{}': {}&quot;, spel, ex.getMessage());</span>
+<span class="fc" id="L102">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

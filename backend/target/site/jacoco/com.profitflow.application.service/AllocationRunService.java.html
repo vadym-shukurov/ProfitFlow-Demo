@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AllocationRunService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.application.service</a> &gt; <span class="el_source">AllocationRunService.java</span></div><h1>AllocationRunService.java</h1><pre class="source lang-java linenums">package com.profitflow.application.service;
+
+import com.profitflow.application.audit.AuditedOperation;
+import com.profitflow.application.model.ActivityProductRuleRow;
+import com.profitflow.application.model.AllocationFlowDto;
+import com.profitflow.application.model.AllocationRunResult;
+import com.profitflow.application.model.ResourceActivityRuleRow;
+import com.profitflow.application.port.in.AllocationRunUseCase;
+import com.profitflow.application.port.out.ActivityProductRuleRepositoryPort;
+import com.profitflow.application.port.out.AllocationExecutionPolicyPort;
+import com.profitflow.application.port.out.AllocationRunHistoryPort;
+import com.profitflow.application.port.out.BusinessMetricsPort;
+import com.profitflow.application.port.out.CurrentUserPort;
+import com.profitflow.application.port.out.ResourceActivityRuleRepositoryPort;
+import com.profitflow.application.port.out.ResourceCostRepositoryPort;
+import com.profitflow.domain.ActivityStageInput;
+import com.profitflow.domain.AllocationResult;
+import com.profitflow.domain.DriverShare;
+import com.profitflow.domain.Money;
+import com.profitflow.domain.ResourceCost;
+import com.profitflow.domain.ResourceStageInput;
+import com.profitflow.domain.allocation.AllocationEngine;
+import com.profitflow.domain.exception.AllocationDomainException;
+import com.profitflow.domain.flow.CostFlow;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * Orchestrates a full ABC allocation run: loads persisted rules and costs, delegates
+ * the two-stage math to {@link AllocationEngine}, maps to DTOs, then persists a
+ * versioned snapshot and outbox event for audit / downstream integration.
+ */
+@Service
+public class AllocationRunService implements AllocationRunUseCase {
+
+    private final ResourceCostRepositoryPort         resourceCosts;
+    private final ResourceActivityRuleRepositoryPort resourceActivityRules;
+    private final ActivityProductRuleRepositoryPort  activityProductRules;
+    private final BusinessMetricsPort                metrics;
+    private final AllocationRunHistoryPort         runHistory;
+    private final CurrentUserPort                  currentUser;
+    private final AllocationExecutionPolicyPort    executionPolicy;
+
+    public AllocationRunService(
+            ResourceCostRepositoryPort resourceCosts,
+            ResourceActivityRuleRepositoryPort resourceActivityRules,
+            ActivityProductRuleRepositoryPort activityProductRules,
+            BusinessMetricsPort metrics,
+            AllocationRunHistoryPort runHistory,
+            CurrentUserPort currentUser,
+<span class="fc" id="L62">            AllocationExecutionPolicyPort executionPolicy) {</span>
+<span class="fc" id="L63">        this.resourceCosts         = resourceCosts;</span>
+<span class="fc" id="L64">        this.resourceActivityRules = resourceActivityRules;</span>
+<span class="fc" id="L65">        this.activityProductRules  = activityProductRules;</span>
+<span class="fc" id="L66">        this.metrics               = metrics;</span>
+<span class="fc" id="L67">        this.runHistory            = runHistory;</span>
+<span class="fc" id="L68">        this.currentUser           = currentUser;</span>
+<span class="fc" id="L69">        this.executionPolicy       = executionPolicy;</span>
+<span class="fc" id="L70">    }</span>
+
+    @Override
+    @Transactional
+    @AuditedOperation(action = &quot;ALLOCATION_RUN_EXECUTED&quot;, entityType = &quot;AllocationRun&quot;,
+                      critical = true)
+    public AllocationRunResult runAllocation() {
+        try {
+<span class="fc" id="L78">            executionPolicy.assertMayExecute(currentUser.currentUsernameOrSystem());</span>
+<span class="fc" id="L79">            RunComputation computed = computeAllocation();</span>
+<span class="fc" id="L80">            AllocationRunResult result = computed.result();</span>
+<span class="fc" id="L81">            String hash = sha256Hex(canonicalInputPayload(</span>
+<span class="fc" id="L82">                    computed.resources(), computed.raRows(), computed.apRows()));</span>
+<span class="fc" id="L83">            runHistory.recordSuccessfulRun(</span>
+<span class="fc" id="L84">                    currentUser.currentUsernameOrSystem(), hash, result);</span>
+<span class="fc" id="L85">            metrics.recordAllocationSuccess(computed.durationNanos());</span>
+<span class="fc" id="L86">            return result;</span>
+<span class="fc" id="L87">        } catch (Exception e) {</span>
+<span class="fc" id="L88">            metrics.recordAllocationFailure();</span>
+<span class="fc" id="L89">            throw e;</span>
+        }
+    }
+
+    private RunComputation computeAllocation() {
+<span class="fc" id="L94">        long startNanos = System.nanoTime();</span>
+<span class="fc" id="L95">        List&lt;ResourceCost&gt; allResources = resourceCosts.findAll();</span>
+<span class="fc" id="L96">        Map&lt;String, ResourceCost&gt; resourceById = allResources.stream()</span>
+<span class="fc" id="L97">                .collect(Collectors.toMap(ResourceCost::id, r -&gt; r));</span>
+
+<span class="fc" id="L99">        List&lt;ResourceActivityRuleRow&gt; raRows = resourceActivityRules.findAllRows();</span>
+<span class="fc" id="L100">        List&lt;ActivityProductRuleRow&gt; apRows = activityProductRules.findAllRows();</span>
+
+<span class="fc" id="L102">        validateActivityCoverage(raRows, apRows);</span>
+
+<span class="fc" id="L104">        List&lt;ResourceStageInput&gt; resourceStage = buildResourceStage(raRows, resourceById);</span>
+<span class="fc" id="L105">        List&lt;ActivityStageInput&gt; productStage = buildProductStage(apRows);</span>
+
+<span class="fc" id="L107">        Set&lt;String&gt; resourcesWithRules = raRows.stream()</span>
+<span class="fc" id="L108">                .map(ResourceActivityRuleRow::resourceId)</span>
+<span class="fc" id="L109">                .collect(Collectors.toSet());</span>
+
+<span class="fc" id="L111">        List&lt;String&gt; unallocated = allResources.stream()</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">                .filter(r -&gt; !r.amount().isZero())</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">                .filter(r -&gt; !resourcesWithRules.contains(r.id()))</span>
+<span class="fc" id="L114">                .map(ResourceCost::id)</span>
+<span class="fc" id="L115">                .sorted()</span>
+<span class="fc" id="L116">                .toList();</span>
+
+<span class="fc" id="L118">        AllocationResult result = AllocationEngine.allocate(resourceStage, productStage);</span>
+
+<span class="fc" id="L120">        AllocationRunResult runResult = new AllocationRunResult(</span>
+<span class="fc" id="L121">                toAmountMap(result.activityCosts()),</span>
+<span class="fc" id="L122">                toAmountMap(result.productCosts()),</span>
+<span class="fc" id="L123">                toFlowDtos(result.flows()),</span>
+                unallocated);
+
+<span class="fc" id="L126">        return new RunComputation(</span>
+<span class="fc" id="L127">                runResult, allResources, raRows, apRows, System.nanoTime() - startNanos);</span>
+    }
+
+<span class="fc" id="L130">    private record RunComputation(</span>
+            AllocationRunResult result,
+            List&lt;ResourceCost&gt; resources,
+            List&lt;ResourceActivityRuleRow&gt; raRows,
+            List&lt;ActivityProductRuleRow&gt; apRows,
+            long durationNanos) {
+    }
+
+    private static String canonicalInputPayload(
+            List&lt;ResourceCost&gt; resources,
+            List&lt;ResourceActivityRuleRow&gt; raRows,
+            List&lt;ActivityProductRuleRow&gt; apRows) {
+
+<span class="fc" id="L143">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L144">        resources.stream()</span>
+<span class="fc" id="L145">                .sorted(Comparator.comparing(ResourceCost::id))</span>
+<span class="fc" id="L146">                .forEach(r -&gt; sb.append(r.id()).append('|')</span>
+<span class="fc" id="L147">                        .append(r.amount().amount()).append('|')</span>
+<span class="fc" id="L148">                        .append(r.amount().currency().getCurrencyCode()).append(';'));</span>
+<span class="fc" id="L149">        sb.append('#');</span>
+<span class="fc" id="L150">        raRows.stream()</span>
+<span class="fc" id="L151">                .sorted(Comparator</span>
+<span class="fc" id="L152">                        .comparing(ResourceActivityRuleRow::resourceId)</span>
+<span class="fc" id="L153">                        .thenComparing(ResourceActivityRuleRow::activityId))</span>
+<span class="fc" id="L154">                .forEach(row -&gt; sb.append(row.resourceId()).append('|')</span>
+<span class="fc" id="L155">                        .append(row.activityId()).append('|')</span>
+<span class="fc" id="L156">                        .append(row.driverWeight()).append(';'));</span>
+<span class="fc" id="L157">        sb.append('#');</span>
+<span class="fc" id="L158">        apRows.stream()</span>
+<span class="fc" id="L159">                .sorted(Comparator</span>
+<span class="fc" id="L160">                        .comparing(ActivityProductRuleRow::activityId)</span>
+<span class="fc" id="L161">                        .thenComparing(ActivityProductRuleRow::productId))</span>
+<span class="fc" id="L162">                .forEach(row -&gt; sb.append(row.activityId()).append('|')</span>
+<span class="fc" id="L163">                        .append(row.productId()).append('|')</span>
+<span class="fc" id="L164">                        .append(row.driverWeight()).append(';'));</span>
+<span class="fc" id="L165">        return sb.toString();</span>
+    }
+
+    private static String sha256Hex(String payload) {
+        try {
+<span class="fc" id="L170">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
+<span class="fc" id="L171">                    .digest(payload.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L172">            return HexFormat.of().formatHex(digest);</span>
+<span class="nc" id="L173">        } catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L174">            throw new IllegalStateException(&quot;SHA-256 not available&quot;, e);</span>
+        }
+    }
+
+    private static void validateActivityCoverage(
+            List&lt;ResourceActivityRuleRow&gt; raRows,
+            List&lt;ActivityProductRuleRow&gt; apRows) {
+
+<span class="fc" id="L182">        Set&lt;String&gt; coveredActivities = apRows.stream()</span>
+<span class="fc" id="L183">                .map(ActivityProductRuleRow::activityId)</span>
+<span class="fc" id="L184">                .collect(Collectors.toSet());</span>
+
+<span class="fc" id="L186">        List&lt;String&gt; missing = raRows.stream()</span>
+<span class="fc" id="L187">                .map(ResourceActivityRuleRow::activityId)</span>
+<span class="fc" id="L188">                .distinct()</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">                .filter(id -&gt; !coveredActivities.contains(id))</span>
+<span class="fc" id="L190">                .sorted()</span>
+<span class="fc" id="L191">                .toList();</span>
+
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        if (!missing.isEmpty()) {</span>
+<span class="fc" id="L194">            throw new AllocationDomainException(</span>
+                    &quot;The following activities are targeted by resource rules but have no &quot;
+                    + &quot;product allocation rules: &quot; + missing);
+        }
+<span class="fc" id="L198">    }</span>
+
+    private static List&lt;ResourceStageInput&gt; buildResourceStage(
+            List&lt;ResourceActivityRuleRow&gt; raRows,
+            Map&lt;String, ResourceCost&gt; resourceById) {
+
+<span class="fc" id="L204">        return raRows.stream()</span>
+<span class="fc" id="L205">                .collect(Collectors.groupingBy(ResourceActivityRuleRow::resourceId))</span>
+<span class="fc" id="L206">                .entrySet().stream()</span>
+<span class="fc" id="L207">                .map(e -&gt; {</span>
+<span class="fc" id="L208">                    ResourceCost rc = resourceById.get(e.getKey());</span>
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">                    if (rc == null) {</span>
+<span class="nc" id="L210">                        throw new AllocationDomainException(</span>
+<span class="nc" id="L211">                                &quot;Stage-1 rule references unknown resource id: &quot; + e.getKey());</span>
+                    }
+<span class="fc" id="L213">                    List&lt;DriverShare&gt; shares = e.getValue().stream()</span>
+<span class="fc" id="L214">                            .map(r -&gt; new DriverShare(r.activityId(), r.driverWeight()))</span>
+<span class="fc" id="L215">                            .toList();</span>
+<span class="fc" id="L216">                    return new ResourceStageInput(rc, shares);</span>
+                })
+<span class="fc" id="L218">                .toList();</span>
+    }
+
+    private static List&lt;ActivityStageInput&gt; buildProductStage(
+            List&lt;ActivityProductRuleRow&gt; apRows) {
+
+<span class="fc" id="L224">        return apRows.stream()</span>
+<span class="fc" id="L225">                .collect(Collectors.groupingBy(ActivityProductRuleRow::activityId))</span>
+<span class="fc" id="L226">                .entrySet().stream()</span>
+<span class="fc" id="L227">                .map(e -&gt; {</span>
+<span class="fc" id="L228">                    List&lt;DriverShare&gt; shares = e.getValue().stream()</span>
+<span class="fc" id="L229">                            .map(r -&gt; new DriverShare(r.productId(), r.driverWeight()))</span>
+<span class="fc" id="L230">                            .toList();</span>
+<span class="fc" id="L231">                    return new ActivityStageInput(e.getKey(), shares);</span>
+                })
+<span class="fc" id="L233">                .toList();</span>
+    }
+
+    private static Map&lt;String, BigDecimal&gt; toAmountMap(Map&lt;String, Money&gt; money) {
+<span class="fc" id="L237">        return money.entrySet().stream()</span>
+<span class="fc" id="L238">                .collect(Collectors.toMap(Map.Entry::getKey, e -&gt; e.getValue().amount()));</span>
+    }
+
+    private static List&lt;AllocationFlowDto&gt; toFlowDtos(List&lt;CostFlow&gt; flows) {
+<span class="fc" id="L242">        return flows.stream().map(AllocationRunService::toFlowDto).toList();</span>
+    }
+
+    private static AllocationFlowDto toFlowDto(CostFlow flow) {
+<span class="fc" id="L246">        Money amount = flow.amount();</span>
+<span class="fc" id="L247">        return new AllocationFlowDto(</span>
+<span class="fc" id="L248">                flow.from().kind().name(),</span>
+<span class="fc" id="L249">                flow.from().id(),</span>
+<span class="fc" id="L250">                flow.to().kind().name(),</span>
+<span class="fc" id="L251">                flow.to().id(),</span>
+<span class="fc" id="L252">                amount.amount(),</span>
+<span class="fc" id="L253">                amount.currency().getCurrencyCode());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

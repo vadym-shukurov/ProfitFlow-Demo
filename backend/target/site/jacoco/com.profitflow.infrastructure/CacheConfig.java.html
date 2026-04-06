@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CacheConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.infrastructure</a> &gt; <span class="el_source">CacheConfig.java</span></div><h1>CacheConfig.java</h1><pre class="source lang-java linenums">package com.profitflow.infrastructure;
+
+import com.profitflow.application.cache.CacheNames;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.time.Duration;
+
+/**
+ * In-process Caffeine cache configuration.
+ *
+ * &lt;h2&gt;Cache names and policies&lt;/h2&gt;
+ * &lt;table border=&quot;1&quot;&gt;
+ *   &lt;caption&gt;Cache configuration&lt;/caption&gt;
+ *   &lt;tr&gt;&lt;th&gt;Cache&lt;/th&gt;&lt;th&gt;TTL&lt;/th&gt;&lt;th&gt;Max entries&lt;/th&gt;&lt;th&gt;Rationale&lt;/th&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@value com.profitflow.application.cache.CacheNames#RESOURCE_COSTS}&lt;/td&gt;&lt;td&gt;60 s&lt;/td&gt;&lt;td&gt;500&lt;/td&gt;
+ *       &lt;td&gt;Full list; evicted on any write mutation&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@value com.profitflow.application.cache.CacheNames#ACTIVITIES}&lt;/td&gt;&lt;td&gt;60 s&lt;/td&gt;&lt;td&gt;500&lt;/td&gt;
+ *       &lt;td&gt;Reference data; rarely changes&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@value com.profitflow.application.cache.CacheNames#PRODUCTS}&lt;/td&gt;&lt;td&gt;60 s&lt;/td&gt;&lt;td&gt;500&lt;/td&gt;
+ *       &lt;td&gt;Reference data; rarely changes&lt;/td&gt;&lt;/tr&gt;
+ * &lt;/table&gt;
+ *
+ * &lt;h2&gt;High-traffic behaviour&lt;/h2&gt;
+ * Under concurrent load, all three cached endpoints are hit for every page load
+ * of the Allocation Rules form. The 60-second TTL reduces database round-trips
+ * from O(concurrent_users) to O(1/60s) with at most 1-minute stale-read windows.
+ *
+ * &lt;h2&gt;Multi-node note&lt;/h2&gt;
+ * Caffeine is a per-JVM cache. In a multi-node deployment, replace it with a
+ * Redis-backed {@link CacheManager} using Spring Data Redis. Cache eviction
+ * must then be propagated via pub/sub or keyspace notifications.
+ */
+@Configuration
+@EnableCaching
+<span class="fc" id="L40">public class CacheConfig {</span>
+
+    @Bean
+    public CacheManager cacheManager() {
+<span class="fc" id="L44">        CaffeineCacheManager manager = new CaffeineCacheManager(</span>
+                CacheNames.RESOURCE_COSTS, CacheNames.ACTIVITIES, CacheNames.PRODUCTS);
+
+<span class="fc" id="L47">        manager.setCaffeine(</span>
+<span class="fc" id="L48">                Caffeine.newBuilder()</span>
+<span class="fc" id="L49">                        .expireAfterWrite(Duration.ofSeconds(60))</span>
+<span class="fc" id="L50">                        .maximumSize(500)</span>
+<span class="fc" id="L51">                        .recordStats()   // Enables Micrometer cache hit/miss metrics</span>
+        );
+
+<span class="fc" id="L54">        manager.setAllowNullValues(false);</span>
+<span class="fc" id="L55">        return manager;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

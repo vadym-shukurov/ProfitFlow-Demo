@@ -1,0 +1,100 @@
+groups:
+  # ── SLO: HTTP Availability ────────────────────────────────────────────────
+  # SLO: ≥ 99.5% of non-health HTTP requests succeed (status < 500) over 5 min.
+  - name: profitflow.http.slo
+    rules:
+      - alert: HighApiErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{
+              application="profitflow-api",
+              status=~"5..",
+              uri!="/actuator/health"
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              application="profitflow-api",
+              uri!="/actuator/health"
+            }[5m]))
+          ) > 0.005
+        for: 2m
+        labels:
+          severity: critical
+          slo:      availability
+        annotations:
+          summary:     "ProfitFlow API error rate exceeded SLO (>0.5%)"
+          description: "5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      # SLO: P99 latency ≤ 2 s for all API endpoints
+      - alert: HighApiLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_server_requests_seconds_bucket{
+              application="profitflow-api",
+              uri!="/actuator/health",
+              uri!="/actuator/prometheus"
+            }[5m])) by (le)
+          ) > 2.0
+        for: 2m
+        labels:
+          severity: warning
+          slo:      latency
+        annotations:
+          summary:     "ProfitFlow API P99 latency exceeded 2 s SLO"
+          description: "P99 response time is {{ $value | humanizeDuration }}."
+
+  # ── SLO: Allocation Run ───────────────────────────────────────────────────
+  # SLO: ≥ 99.5% of allocation runs succeed; P99 duration ≤ 5 s.
+  - name: profitflow.allocation.slo
+    rules:
+      - alert: AllocationRunHighFailureRate
+        expr: |
+          (
+            profitflow_allocation_run_total{result="failure"}
+            /
+            (profitflow_allocation_run_total{result="success"} + profitflow_allocation_run_total{result="failure"})
+          ) > 0.005
+        for: 5m
+        labels:
+          severity: warning
+          slo:      allocation-availability
+        annotations:
+          summary:     "Allocation run failure rate exceeded 0.5% SLO"
+          description: "Failure rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: AllocationRunSlowP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(profitflow_allocation_run_duration_seconds_bucket[5m])) by (le)
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: warning
+          slo:      allocation-latency
+        annotations:
+          summary:     "Allocation run P99 duration exceeded 5 s SLO"
+          description: "P99 duration is {{ $value | humanizeDuration }}."
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+  - name: profitflow.infrastructure
+    rules:
+      - alert: DatabaseConnectionPoolSaturation
+        expr: |
+          hikaricp_connections_active{application="profitflow-api"}
+          /
+          hikaricp_connections_max{application="profitflow-api"} > 0.85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary:     "HikariCP connection pool > 85% saturated"
+          description: "Active: {{ $value | humanizePercentage }} of max connections."
+
+      - alert: ApplicationDown
+        expr: up{job="profitflow-api"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary:     "ProfitFlow API is unreachable"
+          description: "Prometheus scrape of profitflow-api has been failing for 30 s."

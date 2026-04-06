@@ -1,0 +1,140 @@
+<div class="space-y-8">
+  <!-- Page header -->
+  <div class="space-y-1">
+    <h2 class="pf-page-title">Cost Ledger</h2>
+    <p class="pf-page-subtitle">
+      Raw resource costs from the general ledger. Add lines manually or paste a CSV
+      (<code>label,amount</code> or with header row).
+    </p>
+  </div>
+
+  <!-- Error banner -->
+  @if (ledger.error(); as err) {
+    <div class="pf-alert-error" role="alert">{{ err }}</div>
+  }
+
+  <!-- Data-entry panels -->
+  <section class="grid gap-6 lg:grid-cols-2">
+    <!-- Manual entry form -->
+    <div class="pf-card-section">
+      <h3 class="pf-section-title">Add resource cost</h3>
+      <div class="grid gap-3">
+        <label class="pf-label">
+          Label
+          <input
+            class="pf-input mt-1"
+            type="text"
+            [value]="draftLabel()"
+            (input)="draftLabel.set($any($event.target).value)"
+            placeholder="e.g. IT server hosting"
+          />
+        </label>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="pf-label">
+            Amount
+            <input
+              class="pf-input mt-1"
+              type="number"
+              min="0"
+              step="0.01"
+              [value]="draftAmount()"
+              (input)="draftAmount.set($any($event.target).value)"
+            />
+          </label>
+          <label class="pf-label">
+            Currency
+            <select
+              class="pf-select mt-1"
+              [value]="draftCurrency()"
+              (change)="draftCurrency.set($any($event.target).value)"
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          class="pf-btn-primary"
+          (click)="submitNewCost()"
+          [disabled]="ledger.saving()"
+        >
+          Save cost
+        </button>
+      </div>
+    </div>
+
+    <!-- CSV import panel -->
+    <div class="pf-card-section">
+      <h3 class="pf-section-title">Import CSV</h3>
+      <label class="pf-label">
+        Paste CSV
+        <textarea
+          class="pf-textarea mt-1"
+          [value]="csvDraft()"
+          (input)="csvDraft.set($any($event.target).value)"
+          placeholder="label,amount&#10;IT Servers,10000&#10;Zendesk,5000"
+        ></textarea>
+      </label>
+      <button
+        type="button"
+        class="pf-btn-secondary"
+        (click)="importCsv()"
+        [disabled]="ledger.saving()"
+      >
+        Import rows
+      </button>
+    </div>
+  </section>
+
+  <!-- Registered costs table -->
+  <section class="space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="pf-section-title">Registered costs</h3>
+      <button
+        type="button"
+        class="pf-btn-link"
+        (click)="ledger.load()"
+        [disabled]="ledger.loading()"
+      >
+        Refresh
+      </button>
+    </div>
+
+    @if (ledger.loading()) {
+      <p class="text-sm text-content-muted">Loading costs…</p>
+    } @else if (ledger.costs().length === 0) {
+      <p class="rounded-xl border border-dashed border-divider bg-surface px-4 py-8 text-center text-sm text-content-muted">
+        No resource costs yet. Add a line or import CSV to populate the ledger.
+      </p>
+    } @else {
+      <div class="pf-table-wrapper">
+        <table class="pf-table">
+          <thead class="pf-thead">
+            <tr>
+              <th class="pf-th">Label</th>
+              <th class="pf-th">Amount</th>
+              <th class="pf-th">Currency</th>
+              <th class="pf-th font-mono text-xs normal-case">ID</th>
+            </tr>
+          </thead>
+          <tbody class="pf-tbody">
+            @for (row of ledger.costs(); track row.id) {
+              <tr class="pf-tr">
+                <td class="pf-td font-medium text-content-primary">{{ row.label }}</td>
+                <td class="pf-td tabular-nums text-content-secondary">
+                  {{ row.amount | number: '1.2-2' }}
+                </td>
+                <td class="pf-td text-content-body">{{ row.currencyCode }}</td>
+                <td class="pf-td font-mono text-xs text-content-muted">{{ row.id }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

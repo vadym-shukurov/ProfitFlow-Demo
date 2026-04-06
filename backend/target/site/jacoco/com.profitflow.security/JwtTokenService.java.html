@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtTokenService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.security</a> &gt; <span class="el_source">JwtTokenService.java</span></div><h1>JwtTokenService.java</h1><pre class="source lang-java linenums">package com.profitflow.security;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Issues signed RS256 JWT access tokens for authenticated principals.
+ *
+ * &lt;h2&gt;Token claims&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code jti} — unique JWT ID (UUID); enables per-token revocation if needed&lt;/li&gt;
+ *   &lt;li&gt;{@code kid} — JWS header key id; supports multi-key rotation ({@link RsaKeyLoader})&lt;/li&gt;
+ *   &lt;li&gt;{@code sub} — username&lt;/li&gt;
+ *   &lt;li&gt;{@code iss} — {@code profitflow-api}&lt;/li&gt;
+ *   &lt;li&gt;{@code aud} — {@code profitflow-api}; prevents cross-service token replay&lt;/li&gt;
+ *   &lt;li&gt;{@code iat} — issue time (UTC)&lt;/li&gt;
+ *   &lt;li&gt;{@code exp} — expiry = {@code iat + ACCESS_TOKEN_TTL_MINUTES}&lt;/li&gt;
+ *   &lt;li&gt;{@code roles} — space-separated Spring authority strings
+ *       (e.g. {@code &quot;ROLE_FINANCE_MANAGER&quot;})&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h2&gt;Short-lived access tokens&lt;/h2&gt;
+ * Access tokens are valid for {@value #ACCESS_TOKEN_TTL_MINUTES} minutes.
+ * Clients must use a refresh token (see {@link RefreshTokenService}) to obtain
+ * a new access token without re-authenticating. This limits the blast radius of
+ * a stolen access token to the TTL window.
+ */
+@Service
+public class JwtTokenService {
+
+    /** Access token lifetime in minutes. Short window limits stolen-token blast radius. */
+    public static final long ACCESS_TOKEN_TTL_MINUTES = 15;
+
+    /** Audience claim value — only tokens issued for this service are accepted. */
+    public static final String AUDIENCE = &quot;profitflow-api&quot;;
+
+    private final JwtEncoder   encoder;
+    private final RsaKeyLoader rsaKeyLoader;
+
+<span class="fc" id="L51">    public JwtTokenService(JwtEncoder encoder, RsaKeyLoader rsaKeyLoader) {</span>
+<span class="fc" id="L52">        this.encoder      = encoder;</span>
+<span class="fc" id="L53">        this.rsaKeyLoader = rsaKeyLoader;</span>
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Generates a signed JWT access token for the given {@code authentication}.
+     *
+     * @param authentication the successfully authenticated principal
+     * @return compact JWT string suitable for use as a Bearer token
+     */
+    public String generateToken(Authentication authentication) {
+<span class="fc" id="L63">        Instant now = Instant.now();</span>
+<span class="fc" id="L64">        String roles = authentication.getAuthorities().stream()</span>
+<span class="fc" id="L65">                .map(GrantedAuthority::getAuthority)</span>
+<span class="fc" id="L66">                .collect(Collectors.joining(&quot; &quot;));</span>
+
+<span class="fc" id="L68">        JwtClaimsSet claims = JwtClaimsSet.builder()</span>
+<span class="fc" id="L69">                .id(UUID.randomUUID().toString())           // jti: enables per-token tracking</span>
+<span class="fc" id="L70">                .issuer(AUDIENCE)</span>
+<span class="fc" id="L71">                .audience(List.of(AUDIENCE))               // aud: prevents cross-service replay</span>
+<span class="fc" id="L72">                .issuedAt(now)</span>
+<span class="fc" id="L73">                .expiresAt(now.plus(ACCESS_TOKEN_TTL_MINUTES, ChronoUnit.MINUTES))</span>
+<span class="fc" id="L74">                .subject(authentication.getName())</span>
+<span class="fc" id="L75">                .claim(&quot;roles&quot;, roles)</span>
+<span class="fc" id="L76">                .build();</span>
+
+<span class="pc" id="L78">        JwsHeader jwsHeader = JwsHeader.with(() -&gt; &quot;RS256&quot;)</span>
+<span class="fc" id="L79">                .keyId(rsaKeyLoader.signingKeyId())</span>
+<span class="fc" id="L80">                .build();</span>
+
+<span class="fc" id="L82">        return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

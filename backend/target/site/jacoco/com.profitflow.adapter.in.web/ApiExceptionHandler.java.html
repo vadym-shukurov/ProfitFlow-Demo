@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">profitflow-api</a> &gt; <a href="index.source.html" class="el_package">com.profitflow.adapter.in.web</a> &gt; <span class="el_source">ApiExceptionHandler.java</span></div><h1>ApiExceptionHandler.java</h1><pre class="source lang-java linenums">package com.profitflow.adapter.in.web;
+
+import com.profitflow.adapter.in.web.dto.ApiErrorResponse;
+import com.profitflow.application.exception.InvalidInputException;
+import com.profitflow.application.exception.ResourceConflictException;
+import com.profitflow.application.exception.ResourceNotFoundException;
+import com.profitflow.domain.exception.AllocationDomainException;
+import com.profitflow.security.CorrelationIdFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.validation.ConstraintViolationException;
+
+/**
+ * Translates domain and validation exceptions to a consistent JSON error envelope.
+ *
+ * &lt;h2&gt;Security design&lt;/h2&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;strong&gt;No stack traces&lt;/strong&gt; in responses — internal structure stays private.&lt;/li&gt;
+ *   &lt;li&gt;&lt;strong&gt;Correlation IDs&lt;/strong&gt; are included in every error response so clients can
+ *       reference a specific request in a support ticket without exposing system internals.&lt;/li&gt;
+ *   &lt;li&gt;Internal server errors (5xx) return only a generic message — the detailed cause
+ *       is logged server-side against the correlation ID.&lt;/li&gt;
+ *   &lt;li&gt;Domain and validation errors (4xx) return their safe, user-facing messages.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;table border=&quot;1&quot;&gt;
+ *   &lt;caption&gt;Exception → HTTP status mapping&lt;/caption&gt;
+ *   &lt;tr&gt;&lt;th&gt;Exception&lt;/th&gt;&lt;th&gt;HTTP status&lt;/th&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link AllocationDomainException}&lt;/td&gt;&lt;td&gt;422 Unprocessable Entity&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link InvalidInputException}&lt;/td&gt;&lt;td&gt;400 Bad Request&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link ResourceConflictException}&lt;/td&gt;&lt;td&gt;409 Conflict&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link ResourceNotFoundException}&lt;/td&gt;&lt;td&gt;404 Not Found&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link IllegalArgumentException}&lt;/td&gt;&lt;td&gt;400 Bad Request (legacy)&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link IllegalStateException}&lt;/td&gt;&lt;td&gt;409 Conflict (legacy)&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link MethodArgumentNotValidException}&lt;/td&gt;&lt;td&gt;400 Bad Request&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link ConstraintViolationException}&lt;/td&gt;&lt;td&gt;400 Bad Request&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link HttpMessageNotReadableException}&lt;/td&gt;&lt;td&gt;400 Bad Request&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link MissingServletRequestParameterException}&lt;/td&gt;&lt;td&gt;400 Bad Request&lt;/td&gt;&lt;/tr&gt;
+ *   &lt;tr&gt;&lt;td&gt;{@link Exception} (catch-all)&lt;/td&gt;&lt;td&gt;500 Internal Server Error&lt;/td&gt;&lt;/tr&gt;
+ * &lt;/table&gt;
+ */
+@RestControllerAdvice
+<span class="fc" id="L54">public class ApiExceptionHandler {</span>
+
+<span class="fc" id="L56">    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);</span>
+
+    /** Returns 422 for domain rule violations. The exception message is intentionally user-facing. */
+    @ExceptionHandler(AllocationDomainException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; domainError(AllocationDomainException ex) {
+<span class="fc" id="L61">        return ResponseEntity</span>
+<span class="fc" id="L62">                .status(HttpStatus.UNPROCESSABLE_ENTITY)</span>
+<span class="fc" id="L63">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 400 for explicit application-layer input violations. */
+    @ExceptionHandler(InvalidInputException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; invalidInput(InvalidInputException ex) {
+<span class="fc" id="L69">        return ResponseEntity</span>
+<span class="fc" id="L70">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L71">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 409 for application-layer conflict (e.g. stale state). */
+    @ExceptionHandler(ResourceConflictException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; resourceConflict(ResourceConflictException ex) {
+<span class="fc" id="L77">        return ResponseEntity</span>
+<span class="fc" id="L78">                .status(HttpStatus.CONFLICT)</span>
+<span class="fc" id="L79">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 404 when a referenced resource does not exist. */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; notFound(ResourceNotFoundException ex) {
+<span class="fc" id="L85">        return ResponseEntity</span>
+<span class="fc" id="L86">                .status(HttpStatus.NOT_FOUND)</span>
+<span class="fc" id="L87">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 400 for service-layer input guard failures (legacy — prefer {@link InvalidInputException}). */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; badRequest(IllegalArgumentException ex) {
+<span class="fc" id="L93">        return ResponseEntity</span>
+<span class="fc" id="L94">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L95">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 409 for invariant violations (legacy — prefer {@link ResourceConflictException}). */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; conflict(IllegalStateException ex) {
+<span class="fc" id="L101">        return ResponseEntity</span>
+<span class="fc" id="L102">                .status(HttpStatus.CONFLICT)</span>
+<span class="fc" id="L103">                .body(new ApiErrorResponse(ex.getMessage(), correlationId()));</span>
+    }
+
+    /** Returns 400 for Jakarta Bean Validation failures. Reports the first failing field. */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; validation(MethodArgumentNotValidException ex) {
+<span class="fc" id="L109">        String message = ex.getBindingResult().getFieldErrors().stream()</span>
+<span class="fc" id="L110">                .findFirst()</span>
+<span class="fc" id="L111">                .map(err -&gt; &quot;'&quot; + err.getField() + &quot;': &quot; + err.getDefaultMessage())</span>
+<span class="fc" id="L112">                .orElse(&quot;Request validation failed&quot;);</span>
+<span class="fc" id="L113">        return ResponseEntity</span>
+<span class="fc" id="L114">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L115">                .body(new ApiErrorResponse(message, correlationId()));</span>
+    }
+
+    /** Returns 400 for parameter-level validation failures (e.g. query params, path variables). */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; constraintViolation(ConstraintViolationException ex) {
+<span class="fc" id="L121">        String message = ex.getConstraintViolations().stream()</span>
+<span class="fc" id="L122">                .findFirst()</span>
+<span class="fc" id="L123">                .map(v -&gt; &quot;Invalid request parameter: &quot; + v.getMessage())</span>
+<span class="fc" id="L124">                .orElse(&quot;Request validation failed&quot;);</span>
+<span class="fc" id="L125">        return ResponseEntity</span>
+<span class="fc" id="L126">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L127">                .body(new ApiErrorResponse(message, correlationId()));</span>
+    }
+
+    /** Returns 400 for malformed JSON bodies (syntax errors, wrong type). */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; unreadableBody(HttpMessageNotReadableException ex) {
+<span class="fc" id="L133">        return ResponseEntity</span>
+<span class="fc" id="L134">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L135">                .body(new ApiErrorResponse(&quot;Malformed JSON request body.&quot;, correlationId()));</span>
+    }
+
+    /** Returns 400 when required query parameters are missing. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; missingParameter(MissingServletRequestParameterException ex) {
+<span class="fc" id="L141">        return ResponseEntity</span>
+<span class="fc" id="L142">                .status(HttpStatus.BAD_REQUEST)</span>
+<span class="fc" id="L143">                .body(new ApiErrorResponse(&quot;Missing required parameter: &quot; + ex.getParameterName(), correlationId()));</span>
+    }
+
+    /**
+     * Catch-all for unexpected exceptions. Logs full details server-side but returns only a
+     * generic message to the client, preventing internal information leakage.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity&lt;ApiErrorResponse&gt; internalError(Exception ex) {
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        if (ex instanceof AccessDeniedException ade) {</span>
+<span class="fc" id="L153">            throw ade;</span>
+        }
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        if (ex instanceof AuthenticationException ae) {</span>
+<span class="nc" id="L156">            throw ae;</span>
+        }
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (ex instanceof ConstraintViolationException cve) {</span>
+<span class="nc" id="L159">            return constraintViolation(cve);</span>
+        }
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (ex instanceof HttpMessageNotReadableException hmnre) {</span>
+<span class="nc" id="L162">            return unreadableBody(hmnre);</span>
+        }
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (ex instanceof MissingServletRequestParameterException msrpe) {</span>
+<span class="nc" id="L165">            return missingParameter(msrpe);</span>
+        }
+<span class="fc" id="L167">        String cid = correlationId();</span>
+<span class="fc" id="L168">        log.error(&quot;Unhandled exception [correlationId={}]: {}&quot;, cid, ex.getMessage(), ex);</span>
+<span class="fc" id="L169">        return ResponseEntity</span>
+<span class="fc" id="L170">                .status(HttpStatus.INTERNAL_SERVER_ERROR)</span>
+<span class="fc" id="L171">                .body(new ApiErrorResponse(</span>
+                        &quot;An unexpected error occurred. Reference: &quot; + cid, cid));
+    }
+
+    private static String correlationId() {
+<span class="fc" id="L176">        String cid = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        return cid != null ? cid : &quot;n/a&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
