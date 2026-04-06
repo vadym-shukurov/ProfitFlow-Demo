@@ -276,24 +276,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@v0.2.1
+        with:
+          version: latest
+
       # Trivy scans the repository filesystem for secrets, misconfigurations,
       # and known vulnerable dependency versions.
       - name: Trivy filesystem scan (SARIF)
         id: trivy-fs-sarif
-        # Pin to specific commit SHA for supply-chain security — do not use @master
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          # Never scan vendored dependencies/build outputs. These commonly exist locally,
-          # but should not be part of the security signal and can easily break CI.
-          skip-dirs: "**/node_modules,**/dist,**/coverage,**/target"
-          format: sarif
-          output: trivy-fs.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          # Never fail here; we want the SARIF file to always exist for upload.
-          exit-code: "0"
+        run: |
+          trivy fs \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-fs.sarif \
+            --exit-code 0 \
+            --skip-dirs backend/target \
+            --skip-dirs frontend/node_modules \
+            --skip-dirs frontend/dist \
+            --skip-dirs frontend/coverage \
+            --skip-dirs e2e/node_modules \
+            --skip-dirs e2e/playwright-report \
+            .
+
+      - name: Assert SARIF exists
+        if: always()
+        run: |
+          ls -la
+          test -f trivy-fs.sarif
 
       # Upload SARIF to GitHub Security → Code scanning tab
       - name: Upload Trivy SARIF
@@ -306,15 +317,19 @@ jobs:
       - name: Trivy filesystem scan (gate)
         id: trivy-fs-gate
         continue-on-error: true
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          skip-dirs: "**/node_modules,**/dist,**/coverage,**/target"
-          format: table
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+        run: |
+          trivy fs \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            --exit-code 1 \
+            --skip-dirs backend/target \
+            --skip-dirs frontend/node_modules \
+            --skip-dirs frontend/dist \
+            --skip-dirs frontend/coverage \
+            --skip-dirs e2e/node_modules \
+            --skip-dirs e2e/playwright-report \
+            .
 
       - name: Fail build on HIGH/CRITICAL findings
         if: steps.trivy-fs-gate.outcome == 'failure'
