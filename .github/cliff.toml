@@ -1,0 +1,67 @@
+# git-cliff configuration — changelog generation from conventional commits.
+# https://git-cliff.org/docs/configuration
+#
+# Conventional commit types used in ProfitFlow:
+#   feat     — New feature (minor version bump)
+#   fix      — Bug fix (patch version bump)
+#   feat!    — Breaking change (major version bump)
+#   perf     — Performance improvement
+#   refactor — Code refactoring (no functional change)
+#   security — Security fix or hardening
+#   test     — Test additions/changes
+#   docs     — Documentation changes
+#   ci       — CI/CD pipeline changes
+#   chore    — Build system, dependencies, tooling
+#   revert   — Revert a previous commit
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to ProfitFlow are documented in this file.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}⚠️ **BREAKING** {% endif %}\
+          {{ commit.message | upper_first }}\
+          {% if commit.github.username %} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ commit.github.pr_url }})) by @{{ commit.github.username }}{% endif %}\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_preprocessors = [
+    { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/your-org/profitflow/issues/${1}))" },
+]
+commit_parsers = [
+    { message = "^feat",     group = "Features"        },
+    { message = "^fix",      group = "Bug Fixes"       },
+    { message = "^security", group = "Security"        },
+    { message = "^perf",     group = "Performance"     },
+    { message = "^refactor", group = "Refactoring"     },
+    { message = "^test",     group = "Tests",    skip = true },
+    { message = "^docs",     group = "Documentation"   },
+    { message = "^ci",       group = "CI/CD",    skip = true },
+    { message = "^chore",                         skip = true },
+    { message = "^revert",   group = "Reverts"          },
+]
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9].*"
+skip_tags = "v0.0.1"
+ignore_tags = "rc"
+topo_order = false
+sort_commits = "oldest"

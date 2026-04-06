@@ -1,0 +1,42 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Backend (Maven / Java)
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+
+# Frontend (Node / Angular)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+
+# Env
+.env
+.env.local
+*.local
+
+# RSA private key — MUST NEVER be committed to version control.
+# The public key (public.pem) is safe to commit; the private key is not.
+backend/src/main/resources/certs/private.pem
+
+# Playwright / E2E
+/test-results/
+/playwright-report/
+/blob-report/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/.lighthouseci/
+e2e/.auth/

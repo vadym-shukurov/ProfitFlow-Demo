@@ -1,0 +1,108 @@
+# ── Dependabot Configuration ──────────────────────────────────────────────────
+#
+# Automates dependency updates for Maven, npm, and GitHub Actions.
+#
+# Finance application update policy:
+#   - Patch updates:  auto-merge after CI passes (low risk, security fixes)
+#   - Minor updates:  create PR, require human review (potential API changes)
+#   - Major updates:  create PR, require senior engineer review (breaking changes)
+#
+# All PRs from Dependabot must pass the full CI pipeline before merging.
+
+version: 2
+
+updates:
+  # ── Backend (Maven / Java) ────────────────────────────────────────────────
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 10
+    # Group patch and minor updates together to reduce PR noise
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework.security:*"
+          - "org.springframework:*"
+        update-types:
+          - "minor"
+          - "patch"
+      test-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      security-libs:
+        patterns:
+          - "io.jsonwebtoken:*"
+          - "com.nimbusds:*"
+          - "org.bouncycastle:*"
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Reviewers who must approve dependency updates in the finance domain
+    reviewers:
+      - "tech-lead"    # Replace with your GitHub username/team
+
+  # ── Frontend (npm / Angular) ──────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 10
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+          - "@schematics/*"
+        update-types:
+          - "minor"
+          - "patch"
+      test-and-build-tools:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    reviewers:
+      - "tech-lead"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  # Keep CI/CD action versions up to date (especially security scanners)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"

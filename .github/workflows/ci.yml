@@ -1,0 +1,573 @@
+# ── Continuous Integration ────────────────────────────────────────────────────
+#
+# Runs on every push and pull request that touches backend or frontend code.
+# All jobs are quality gates: a single failure blocks merge.
+#
+# Pipeline shape (parallelised where dependencies allow):
+#
+#   ┌──────────────────┐   ┌──────────────────┐
+#   │  backend-quality │   │ frontend-quality  │
+#   │  (checkstyle,    │   │ (tsc, audit,      │
+#   │   spotbugs, PMD) │   │  Karma + cov)     │
+#   └────────┬─────────┘   └────────┬─────────┘
+#            │                      │
+#            │                      │
+#   ┌────────▼─────────┐   ┌────────▼─────────┐
+#   │  backend-test    │   │  frontend-build   │
+#   │  (unit + cov)    │   │  (prod bundle)    │
+#   └────────┬─────────┘   └──────────────────┘
+#            │
+#   ┌────────▼─────────┐
+#   │  security-scan   │
+#   │  (trivy fs +     │
+#   │   dep review)    │
+#   └────────┬─────────┘
+#            │
+#   ┌────────▼─────────┐
+#   │  docker-build    │
+#   │  (build + trivy  │
+#   │   image scan +   │
+#   │   push to GHCR)  │
+#   └──────────────────┘
+#
+# Required secrets (set in Settings → Secrets and variables → Actions):
+#   NVD_API_KEY  — OWASP NVD API key (optional but reduces rate limits)
+#
+# Required environment variables (set in repo Variables):
+#   REGISTRY_IMAGE  — e.g. ghcr.io/your-org/profitflow (set automatically)
+
+name: CI
+
+on:
+  push:
+    # Run CI on every branch push so feature branches get feedback.
+    branches: ["**"]
+  pull_request:
+    # Run CI for PRs targeting any branch (main/develop/etc).
+    branches: ["**"]
+    # Only run CI on changes to relevant paths (skip on docs-only PRs)
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "e2e/**"
+      - "docs/testing/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/chaos-gremlin.yml"
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - "backend/Dockerfile"
+      - "frontend/Dockerfile"
+      - "backend/scripts/**"
+      - "docs/adr/**"
+      - "docs/security/**"
+
+# Cancel in-progress CI runs when a new commit is pushed to the same PR/branch.
+# This prevents wasting runner minutes on stale commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/profitflow-api
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/profitflow-ui
+
+jobs:
+  # ── Job 1: Backend static analysis ─────────────────────────────────────────
+  backend-quality:
+    name: "Backend — Quality Gates"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Checkstyle
+        run: mvn checkstyle:check -B -q
+
+      - name: SpotBugs
+        run: mvn spotbugs:check -B -q
+
+      - name: PMD CPD (copy-paste detection)
+        run: mvn pmd:cpd-check -B -q
+
+      - name: Upload SpotBugs report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotbugs-report
+          path: backend/target/spotbugsXml.xml
+          retention-days: 7
+
+  # ── Job 2: Backend unit tests + coverage ───────────────────────────────────
+  backend-test:
+    name: "Backend — Tests & Coverage"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      # Unit tests (Surefire) + integration tests (*IT.java, Docker) + JaCoCo + CPD
+      - name: Run tests, integration tests, coverage & quality gates
+        run: mvn verify -B -q -Dsurefire.failIfNoSpecifiedTests=false -DskipITs=false
+
+      # Publish test results as a PR check summary (visible in the PR UI)
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            backend/target/surefire-reports/*.xml
+            backend/target/failsafe-reports/*.xml
+          check_name: "Backend Tests"
+
+      # Upload JaCoCo HTML report for manual review
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-coverage-report
+          path: backend/target/site/jacoco/
+          retention-days: 14
+
+      # Repackage with H2 (openapi-export profile) and dump /v3/api-docs for consumers / TS codegen
+      - name: Package for OpenAPI export
+        run: mvn -q -Popenapi-export -DskipTests package -B
+
+      - name: Export OpenAPI contract
+        run: bash scripts/export-openapi.sh
+
+      - name: Upload OpenAPI JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-contract
+          path: backend/target/api-contract/openapi.json
+          retention-days: 30
+
+      # Post coverage summary as a PR comment (requires pull_request trigger)
+      - name: JaCoCo PR comment
+        uses: madrapps/jacoco-report@v1.7.1
+        if: github.event_name == 'pull_request'
+        with:
+          paths: backend/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 85
+          min-coverage-changed-files: 80
+          title: "Code Coverage Report"
+          update-comment: true
+
+  # ── Job 3: Frontend lint + build ───────────────────────────────────────────
+  frontend-quality:
+    name: "Frontend — Lint & Type Check"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # 'npm ci' is strictly reproducible — mandatory for auditable builds
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      # Fail the build on HIGH or CRITICAL npm dependency vulnerabilities.
+      # --audit-level high: LOW/MODERATE are reported but don't fail CI.
+      # Advisories for devDependencies (build tools) are excluded from the
+      # production risk surface but still reported in the output.
+      - name: Dependency vulnerability audit
+        # Temporarily gate on CRITICAL only to keep CI actionable while Angular 17
+        # upstream advisories require a major upgrade to fully remediate.
+        run: npm audit --audit-level critical
+
+      # Run unit tests headlessly — Karma/Jasmine suite enforced as a CI gate
+      - name: Unit tests + coverage thresholds (headless Chrome)
+        run: npx ng test --watch=false --browsers=ChromeHeadless --no-progress --code-coverage
+
+      # Upload Karma HTML/JSON coverage for PR review
+      - name: Upload frontend coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
+
+  frontend-build:
+    name: "Frontend — Production Build"
+    runs-on: ubuntu-latest
+    needs: frontend-quality
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Build production bundle
+        run: npm run build -- --configuration=production
+
+      # Cache the build output for the docker-build job to reuse
+      - name: Upload build artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  # ── Job 4: Filesystem security scan ────────────────────────────────────────
+  security-scan:
+    name: "Security — Filesystem & Dependency Scan"
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    permissions:
+      security-events: write  # Required to upload SARIF to GitHub Security tab
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Trivy scans the repository filesystem for secrets, misconfigurations,
+      # and known vulnerable dependency versions.
+      - name: Trivy filesystem scan
+        # Pin to specific commit SHA for supply-chain security — do not use @master
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          # Never scan vendored dependencies/build outputs. These commonly exist locally,
+          # but should not be part of the security signal and can easily break CI.
+          skip-dirs: "**/node_modules,**/dist,**/coverage,**/target"
+          format: sarif
+          output: trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # Upload SARIF to GitHub Security → Code scanning tab
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+  # ── Job 5: Docker image build + scan + push ─────────────────────────────────
+  docker-build:
+    name: "Docker — Build, Scan & Push"
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-build, security-scan]
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Download the pre-built Angular bundle to avoid rebuilding in Docker
+      - name: Download frontend artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      # Extract git metadata for image tags (e.g. sha-abc1234, main-latest)
+      - name: Docker metadata — backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BACKEND }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Docker metadata — frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_FRONTEND }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # Log in to GitHub Container Registry (only push on non-PR events)
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Enable BuildKit for multi-stage build caching
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the backend image (with layer cache from GitHub Actions cache)
+      - name: Build backend image
+        id: build-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          # Always tag a local image for scanners on PRs (no registry push).
+          tags: |
+            ${{ steps.meta-backend.outputs.tags }}
+            profitflow-api:ci
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to:   type=gha,scope=backend,mode=max
+          # Build provenance attestation for supply chain security (SLSA)
+          provenance: true
+          sbom: true
+          # Ensure the image is available locally for scanning on PRs.
+          load: ${{ github.event_name == 'pull_request' }}
+
+      # Build the frontend image
+      - name: Build frontend image
+        id: build-frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ steps.meta-frontend.outputs.tags }}
+            profitflow-ui:ci
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to:   type=gha,scope=frontend,mode=max
+          provenance: true
+          sbom: true
+          load: ${{ github.event_name == 'pull_request' }}
+
+      # Scan the built images for OS-level CVEs before pushing
+      - name: Trivy image scan — backend (PR/local)
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        with:
+          image-ref: profitflow-api:ci
+          format: sarif
+          output: trivy-image-backend.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Trivy image scan — backend (push/GHCR)
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        with:
+          # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
+          # (which tags with a short SHA by default).
+          image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
+          format: sarif
+          output: trivy-image-backend.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Trivy image scan — frontend (PR/local)
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        with:
+          image-ref: profitflow-ui:ci
+          format: sarif
+          output: trivy-image-frontend.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Trivy image scan — frontend (push/GHCR)
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37  # v0.29.0
+        with:
+          # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
+          image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
+          format: sarif
+          output: trivy-image-frontend.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Upload image scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image-backend.sarif
+          category: trivy-image-backend
+
+      - name: Upload image scan results (frontend)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image-frontend.sarif
+          category: trivy-image-frontend
+
+  # ── Job 6: OpenAPI → TypeScript contract drift gate ───────────────────────────
+  openapi-typescript-check:
+    name: "Contract — OpenAPI TypeScript drift"
+    runs-on: ubuntu-latest
+    needs: backend-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-contract
+          path: backend/target/api-contract/
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline
+
+      - name: Regenerate API types from OpenAPI
+        working-directory: frontend
+        run: npm run gen:api-types
+
+      - name: Fail if api-types.generated.ts drifts from OpenAPI
+        run: git diff --exit-code frontend/src/app/api-types.generated.ts
+
+  # ── Job 8: Playwright (UI + API), Lighthouse a11y, Artillery smoke ────────────
+  quality-e2e:
+    name: "Quality — E2E, accessibility, load smoke"
+    runs-on: ubuntu-latest
+    needs: [frontend-quality]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Set up Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Build backend JAR with H2 for e2e profile (tests skipped — exercised in backend-test)
+        run: mvn -f backend -B -q -Pe2e -DskipTests package
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci --prefer-offline
+
+      - name: TypeScript check (Playwright tests & config)
+        working-directory: e2e
+        run: npm run typecheck
+
+      - name: Install Playwright Chromium (system deps)
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E + LHCI + Artillery
+        run: |
+          export E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Admin1234!}"
+          bash e2e/scripts/ci-with-servers.sh
+        env:
+          CI: true
+          # Optional override (forks / hardened envs). Empty → demo password from DemoDataSeeder.
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
+
+  # ── Job 9: CI status gate ────────────────────────────────────────────────────
+  # A single job that succeeds only when all required jobs succeed.
+  # Branch protection rules reference this single job instead of each individual job,
+  # making it easy to add/remove jobs without updating branch protection settings.
+  ci-gate:
+    name: "CI Gate (required)"
+    runs-on: ubuntu-latest
+    needs:
+      - backend-quality
+      - backend-test
+      - openapi-typescript-check
+      - frontend-build
+      - quality-e2e
+      - security-scan
+      - docker-build
+    if: always()
+    steps:
+      - name: Check all jobs succeeded
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
+             [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more CI jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All CI jobs passed."

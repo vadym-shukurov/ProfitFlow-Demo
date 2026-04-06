@@ -1,0 +1,25 @@
+# Manual chaos checklist — does not run Gremlin without your secrets and targets.
+# Link: https://github.com/gremlin/chaos-engineering-tools
+name: Chaos — Gremlin (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment label (informational only)"
+        required: true
+        default: "staging"
+
+jobs:
+  guidance:
+    name: Operator checklist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print safe checklist (no secrets)
+        run: |
+          echo "Environment (label): ${{ github.event.inputs.environment }}"
+          echo "See docs/testing/CHAOS.md for Gremlin experiments and secret names."
+          echo "This workflow does not call Gremlin APIs unless you extend it with"
+          echo "authenticated steps and approved targets."

@@ -1,0 +1,41 @@
+# Root-level .dockerignore — applies to the whole repo context.
+# Keep the Docker build context small: exclude development files,
+# test artefacts, and secrets that must never enter an image layer.
+
+# Version control
+.git
+.gitignore
+
+# CI/CD config (not needed inside the image)
+.github
+
+# Documentation
+*.md
+docs/
+
+# Local environment files (secrets — MUST NOT be in the image)
+.env
+.env.*
+!.env.example
+
+# Monitoring configuration (not needed inside the image)
+monitoring/
+
+# Frontend build artefacts (rebuilt inside the container)
+frontend/node_modules/
+frontend/dist/
+
+# Backend build artefacts (rebuilt inside the container)
+backend/target/
+backend/.mvn/
+
+# Test data and reports
+**/*-reports/
+**/surefire-reports/
+**/coverage/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.DS_Store

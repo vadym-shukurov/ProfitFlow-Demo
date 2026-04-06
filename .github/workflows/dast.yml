@@ -1,0 +1,23 @@
+# Optional DAST: OWASP ZAP baseline against a running instance.
+# Trigger manually after deploying a staging URL (see docs/security/THREAT_MODEL.md).
+name: DAST (ZAP baseline)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Base URL to scan (e.g. https://staging.example.com)"
+        required: true
+        type: string
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ inputs.target_url }}
