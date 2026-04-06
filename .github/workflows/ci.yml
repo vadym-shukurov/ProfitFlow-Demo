@@ -469,10 +469,22 @@ jobs:
         with:
           image: profitflow-api:ci
           severity-cutoff: high
-          fail-build: true
+          fail-build: "false"
           only-fixed: true
           output-format: sarif
           output-file: grype-image-backend.sarif
+          cache-db: true
+
+      - name: Grype image scan gate — backend (PR/local)
+        if: github.event_name == 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: profitflow-api:ci
+          severity-cutoff: high
+          fail-build: "true"
+          only-fixed: true
+          output-format: table
+          output-file: grype-image-backend-gate.txt
           cache-db: true
 
       - name: Grype image scan — backend (push/GHCR)
@@ -481,10 +493,22 @@ jobs:
         with:
           image: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
           severity-cutoff: high
-          fail-build: true
+          fail-build: "false"
           only-fixed: true
           output-format: sarif
           output-file: grype-image-backend.sarif
+          cache-db: true
+
+      - name: Grype image scan gate — backend (push/GHCR)
+        if: github.event_name != 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
+          severity-cutoff: high
+          fail-build: "true"
+          only-fixed: true
+          output-format: table
+          output-file: grype-image-backend-gate.txt
           cache-db: true
 
       - name: Grype image scan — frontend (PR/local)
@@ -493,10 +517,22 @@ jobs:
         with:
           image: profitflow-ui:ci
           severity-cutoff: high
-          fail-build: true
+          fail-build: "false"
           only-fixed: true
           output-format: sarif
           output-file: grype-image-frontend.sarif
+          cache-db: true
+
+      - name: Grype image scan gate — frontend (PR/local)
+        if: github.event_name == 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: profitflow-ui:ci
+          severity-cutoff: high
+          fail-build: "true"
+          only-fixed: true
+          output-format: table
+          output-file: grype-image-frontend-gate.txt
           cache-db: true
 
       - name: Grype image scan — frontend (push/GHCR)
@@ -505,10 +541,22 @@ jobs:
         with:
           image: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
           severity-cutoff: high
-          fail-build: true
+          fail-build: "false"
           only-fixed: true
           output-format: sarif
           output-file: grype-image-frontend.sarif
+          cache-db: true
+
+      - name: Grype image scan gate — frontend (push/GHCR)
+        if: github.event_name != 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
+          severity-cutoff: high
+          fail-build: "true"
+          only-fixed: true
+          output-format: table
+          output-file: grype-image-frontend-gate.txt
           cache-db: true
 
       - name: Upload image scan results (backend)

@@ -36,12 +36,16 @@
         <spring-security.version>6.5.9</spring-security.version>
         <!-- Security: pin embedded Tomcat above CVE-2024-50379 / CVE-2025-24813 fix versions -->
         <tomcat.version>10.1.52</tomcat.version>
-        <!-- Security: pin Netty above CVE-2025-24970 fix version -->
-        <netty.version>4.1.118.Final</netty.version>
-        <!-- Security: pin Spring Framework above CVE-2025-41249 fix version -->
-        <spring-framework.version>6.2.11</spring-framework.version>
+        <!-- Security: pin Netty above CVE-2025-24970 / CVE-2025-58057 (BrotliDecoder) -->
+        <netty.version>4.1.125.Final</netty.version>
+        <!-- Security: pin Spring Framework above CVE-2025-41249; 6.2.17+ fixes CVE-2026-22735 (SSE stream handling) -->
+        <spring-framework.version>6.2.17</spring-framework.version>
+        <!-- Security: pin Jackson BOM above GHSA-72hv-8253-57qq (jackson-core async parser) -->
+        <jackson-bom.version>2.21.2</jackson-bom.version>
         <!-- Security: pin pgjdbc above CVE-2025-49146 fix version -->
         <postgresql.version>42.7.7</postgresql.version>
+        <!-- Security: pin above CVE-2025-48924 (uncontrolled recursion) -->
+        <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
 
     <dependencies>

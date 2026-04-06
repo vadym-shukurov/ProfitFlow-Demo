@@ -94,8 +94,8 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.cfg.outputs.skip == 'false'
-        # Pin major v5 — v6+ changed `args` quoting (see SonarSource/sonarqube-scan-action releases).
-        uses: SonarSource/sonarqube-scan-action@v5
+        # v6+ fixes GHSA-5xq9-5g24-4g6f (argument injection on Windows) and related v5 advisories; use JS arg parser (see action README).
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:

@@ -82,6 +82,7 @@ jobs:
             -Dcheckstyle.skip=true \
             -Dpmd.skip=true \
             -Dspotbugs.skip=true \
+            -Dformats=HTML,SARIF \
             -B -q \
             org.owasp:dependency-check-maven:check)
 
@@ -128,25 +129,11 @@ jobs:
           path: backend/target/dependency-check-report.html
           retention-days: 30
 
-      # Convert OWASP XML report to SARIF for GitHub Security tab
-      - name: Convert OWASP report to SARIF
-        if: always()
-        run: |
-          docker run --rm \
-            -v "${PWD}:/src" \
-            -v "${HOME}/.m2/dependency-check-data:/usr/share/dependency-check/data" \
-            -w /src \
-            owasp/dependency-check:latest \
-            --scan /src/backend \
-            --format SARIF \
-            --out /src \
-            --noupdate
-
       - name: Upload OWASP SARIF
-        if: always()
+        if: always() && hashFiles('backend/target/dependency-check-report.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: dependency-check-report.sarif
+          sarif_file: backend/target/dependency-check-report.sarif
           category: owasp
 
   # ── npm audit ─────────────────────────────────────────────────────────────
@@ -307,18 +294,34 @@ jobs:
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
           severity-cutoff: high
-          fail-build: false
+          # Keep the scan actionable: always generate a valid SARIF report for Code Scanning.
+          # We run a separate "gate" step for notifications / failing logic.
+          fail-build: "false"
           output-format: sarif
+          output-file: grype-weekly-${{ matrix.image }}.sarif
+          cache-db: true
 
       - name: Upload SARIF
-        if: always() && steps.scan.outputs.sarif != ''
+        if: always() && hashFiles(format('grype-weekly-{0}.sarif', matrix.image)) != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: ${{ steps.scan.outputs.sarif }}
+          sarif_file: grype-weekly-${{ matrix.image }}.sarif
           category: grype-weekly-${{ matrix.image }}
 
+      - name: Scan image (gate)
+        id: gate
+        continue-on-error: true
+        uses: anchore/scan-action@v7
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          severity-cutoff: high
+          fail-build: "true"
+          output-format: table
+          output-file: grype-weekly-${{ matrix.image }}.txt
+          cache-db: true
+
       - name: Notify on findings
-        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        if: steps.gate.outcome == 'failure' && env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.27
         with:
           payload: |

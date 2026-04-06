@@ -21,6 +21,20 @@ RUN npm run build -- --configuration=production
 # nginx:1.27-alpine is ~10 MB.
 FROM nginx:1.27-alpine AS runtime
 
+# Refresh Alpine packages — base tag may lag security fixes (openssl, expat, libpng, curl, …).
+RUN set -eux; \
+    apk update; \
+    apk upgrade --no-cache; \
+    apk add --no-cache --upgrade \
+      zlib \
+      libpng \
+      expat \
+      openssl \
+      libssl3 \
+      libcrypto3 \
+      curl \
+      libcurl
+
 # Security: remove default nginx pages that could reveal version info.
 RUN rm -rf /usr/share/nginx/html/*
 

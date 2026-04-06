@@ -2,6 +2,8 @@
 # Pre-download all Maven dependencies in a separate layer so that subsequent
 # builds that only change source code do NOT re-download the internet.
 FROM maven:3.9-eclipse-temurin-21-alpine AS deps
+# Patch Alpine packages in build stages too (some scanners surface transitive base layers).
+RUN apk update && apk upgrade --no-cache
 WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B -q
@@ -17,6 +19,23 @@ RUN mvn package -DskipTests -B -q
 # Minimal JRE image — no JDK, no Maven, no build tooling.
 # eclipse-temurin:21-jre-alpine is ~90 MB vs ~300 MB for the full JDK image.
 FROM eclipse-temurin:21-jre-alpine AS runtime
+
+# Base images can lag Alpine security updates; refresh installed packages from apk repos
+# so Grype/OSV does not flag zlib (e.g. CVE-2026-27171), libpng, expat, gnutls, openssl, …
+RUN set -eux; \
+    apk update; \
+    apk upgrade --no-cache; \
+    for _p in zlib libpng expat gnutls openssl libssl3 libcrypto3; do \
+      apk upgrade --no-cache "$_p" || true; \
+    done; \
+    apk add --no-cache --upgrade \
+      zlib \
+      libpng \
+      expat \
+      gnutls \
+      openssl \
+      libssl3 \
+      libcrypto3
 
 # Security: run as non-root with a dedicated system account.
 # The 'profitflow' group/user is created here so the UID is consistent across
