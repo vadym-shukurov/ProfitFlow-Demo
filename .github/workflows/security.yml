@@ -294,6 +294,8 @@ jobs:
     permissions:
       packages: read
       security-events: write
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     strategy:
       matrix:
@@ -326,7 +328,7 @@ jobs:
           category: trivy-weekly-${{ matrix.image }}
 
       - name: Notify on findings
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.27
         with:
           payload: |
@@ -334,5 +336,4 @@ jobs:
               "text": "🚨 *Weekly Trivy scan* found HIGH/CRITICAL CVEs in `${{ matrix.image }}`.\n<${{ github.server_url }}/${{ github.repository }}/security/code-scanning|View Security Alerts>"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
