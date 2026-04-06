@@ -1,5 +1,7 @@
 # Optional DAST: OWASP ZAP baseline against a running instance.
 # Trigger manually after deploying a staging URL (see docs/security/THREAT_MODEL.md).
+#
+# workflow_dispatch inputs are read via github.event.inputs.* (the `inputs` context is only for reusable workflows).
 name: DAST (ZAP baseline)
 
 on:
@@ -9,6 +11,16 @@ on:
         description: "Base URL to scan (e.g. https://staging.example.com)"
         required: true
         type: string
+      fail_on_alerts:
+        description: "Fail the job if ZAP reports any findings (stricter gate)"
+        required: false
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+
+permissions:
+  contents: read
+  actions: write # ZAP action uploads zap-baseline-report artifact
 
 jobs:
   zap-baseline:
@@ -17,7 +29,27 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Validate target URL
+        env:
+          TARGET: ${{ github.event.inputs.target_url }}
+        run: |
+          if [ -z "${TARGET// }" ]; then
+            echo "::error::target_url is empty."
+            exit 1
+          fi
+          case "$TARGET" in
+            http://*|https://*) ;;
+            *)
+              echo "::error::target_url must start with http:// or https:// (got: ${TARGET:0:32}...)"
+              exit 1
+              ;;
+          esac
+
       - name: Run ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: ${{ inputs.target_url }}
+          target: ${{ github.event.inputs.target_url }}
+          docker_name: ghcr.io/zaproxy/zaproxy:stable
+          allow_issue_writing: false
+          fail_action: ${{ github.event.inputs.fail_on_alerts == 'true' }}
+          artifact_name: zap-baseline-report

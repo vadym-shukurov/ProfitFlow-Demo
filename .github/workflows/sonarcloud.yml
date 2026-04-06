@@ -88,11 +88,19 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # JaCoCo XML (verify runs tests + report; skip ITs/Docker, skip heavy plugins for speed)
+      # JaCoCo XML (verify runs tests + report; skip ITs/Docker, skip heavy plugins for speed).
+      # With skipITs, branch coverage is slightly below the pom's 75% JaCoCo gate — main CI still
+      # enforces thresholds on full verify -DskipITs=false. Here we only need XML for Sonar.
       - name: Backend verify + JaCoCo report
         if: steps.cfg.outputs.skip == 'false'
         working-directory: backend
-        run: mvn -B -U verify -DskipITs=true -Dspotbugs.skip=true -Dpmd.skip=true -Dcheckstyle.skip=true
+        run: >
+          mvn -B -U verify
+          -DskipITs=true
+          -Dspotbugs.skip=true
+          -Dpmd.skip=true
+          -Dcheckstyle.skip=true
+          -Djacoco.haltOnFailure=false
 
       - name: Frontend unit tests + LCOV
         if: steps.cfg.outputs.skip == 'false'
