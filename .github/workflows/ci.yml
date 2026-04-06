@@ -694,7 +694,7 @@ jobs:
       - name: Check all jobs succeeded
         run: |
           echo "Needs results:"
-          echo '${{ toJson(needs) }}' | python -c 'import json,sys; n=json.load(sys.stdin); print("\n".join([f"- {k}: {v.get(\"result\")}" for k,v in n.items()]))'
+          echo '${{ toJson(needs) }}' | python -c 'import json,sys; n=json.load(sys.stdin); print("\n".join([("- %s: %s" % (k, v.get("result"))) for k,v in n.items()]))'
 
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] || \
              [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
