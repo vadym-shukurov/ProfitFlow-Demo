@@ -28,6 +28,8 @@ COPY --from=builder --chown=nonroot:nonroot \
 
 EXPOSE 8080
 
+USER nonroot
+
 # JVM tuning for containers:
 #   -XX:+UseContainerSupport          — respect cgroup CPU/memory limits
 #   -XX:MaxRAMPercentage=75.0         — use 75% of container RAM for heap

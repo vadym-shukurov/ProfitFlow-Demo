@@ -1,0 +1,9 @@
+# Semgrep targeting for this repo.
+#
+# We keep Semgrep focused on executable code and CI/CD definitions; link-only
+# findings in documentation (e.g. plaintext http:// references for localhost)
+# create noise without improving security posture.
+
+**/*.md
+docs/**
+

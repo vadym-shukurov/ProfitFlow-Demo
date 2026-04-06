@@ -140,7 +140,7 @@ class AuditAspectTest {
     void spelExpressionExtractsIdFromResult() throws Throwable {
         record DomainEntity(String id, String name) {}
         when(pjp.proceed()).thenReturn(new DomainEntity("entity-uuid", "Test"));
-        var audited = annotation("CREATE", "DomainEntity", "id()", false);
+        var audited = annotation("CREATE", "DomainEntity", "id", false);
 
         aspect.around(pjp, audited);
 
@@ -164,8 +164,8 @@ class AuditAspectTest {
     @Test
     void invalidSpelExpressionFallsBackToNullEntityId() throws Throwable {
         when(pjp.proceed()).thenReturn("plain-string");
-        // "nonExistentProperty()" will fail during SpEL evaluation
-        var audited = annotation("ACTION", "Entity", "nonExistentProperty()", false);
+        // nonExistentProperty will evaluate to null / throw during SpEL evaluation
+        var audited = annotation("ACTION", "Entity", "nonExistentProperty", false);
 
         Object result = aspect.around(pjp, audited);
 

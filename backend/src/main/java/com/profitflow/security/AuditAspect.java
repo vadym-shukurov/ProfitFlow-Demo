@@ -92,9 +92,24 @@ public class AuditAspect {
             return null;
         }
         try {
-            Expression expr  = SPEL.parseExpression(spel);
+            // Treat SpEL as potentially unsafe: we support only read-only property paths, and
+            // intentionally reject method calls (e.g. `id()`), type references (T(...)),
+            // constructors (`new ...`), and other expression features.
+            //
+            // For compatibility, allow `#result.<path>` and normalize it to `<path>`.
+            String normalized = spel.strip();
+            if (normalized.startsWith("#result.")) {
+                normalized = normalized.substring("#result.".length());
+            }
+
+            // Only allow property paths like "id" or "user.id".
+            if (!normalized.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+                log.warn("Rejected non-property entityIdSpEL='{}'", spel);
+                return null;
+            }
+
+            Expression expr  = SPEL.parseExpression(normalized);
             StandardEvaluationContext ctx = new StandardEvaluationContext(result);
-            ctx.setVariable("result", result);
             Object value = expr.getValue(ctx);
             return value != null ? value.toString() : null;
         } catch (Exception ex) {
