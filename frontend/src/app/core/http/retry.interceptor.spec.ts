@@ -140,24 +140,35 @@ describe('retryInterceptor', () => {
     expect(completed).toBeTrue();
   }));
 
-  it('does not issue a 5th request after exhausting 3 retries', fakeAsync(() => {
-    http.get('/api/v1/resource-costs').subscribe({ error: () => {} });
+  it('stops after 3 retries (4 total attempts)', fakeAsync(() => {
+    let finalError: HttpErrorResponse | undefined;
+    http.get('/api/v1/resource-costs').subscribe({
+      error: (e) => (finalError = e),
+    });
 
-    // 1 original + 3 retries = 4 total attempts (retry count: 3 in RxJS)
+    // 1 original + 3 retries = 4 total attempts (retry count: 3 in RxJS).
+    // The interceptor backoff is deterministic: 500ms, 1000ms, 2000ms.
     httpMock.expectOne('/api/v1/resource-costs').flush(
       '', { status: 503, statusText: 'Service Unavailable' });
-    tick(700);
+    tick(500);
+
     httpMock.expectOne('/api/v1/resource-costs').flush(
       '', { status: 503, statusText: 'Service Unavailable' });
-    tick(1500);
+    tick(1000);
+
     httpMock.expectOne('/api/v1/resource-costs').flush(
       '', { status: 503, statusText: 'Service Unavailable' });
-    tick(3000);
+    tick(2000);
+
     httpMock.expectOne('/api/v1/resource-costs').flush(
       '', { status: 503, statusText: 'Service Unavailable' });
 
-    flush();
-    // expectNone uses throw, not Jasmine — wrap so failOnEmptyTest and coverage of intent are satisfied
+    // Let the error propagate and ensure no further retries are scheduled.
+    tick();
+    expect(finalError?.status).toBe(503);
+
+    // Advance time beyond the full backoff window to prove a 5th request never occurs.
+    tick(10_000);
     expect(() => httpMock.expectNone('/api/v1/resource-costs')).not.toThrow();
     discardPeriodicTasks();
   }));
