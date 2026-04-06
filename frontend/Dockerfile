@@ -20,12 +20,15 @@ RUN npm run build -- --configuration=production
 # Official unprivileged nginx — runs as non-root; listens on 8080 (see nginx.conf).
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
-# Security: remove default nginx pages that could reveal version info.
-RUN rm -rf /usr/share/nginx/html/*
+# Temporarily escalate to root to modify the filesystem (the base image defaults to a non-root user).
+USER root
+
+# Prepare writable web root (nginx.conf points here).
+RUN mkdir -p /tmp/nginx/html && chown -R nginx:nginx /tmp/nginx
 
 # Copy the compiled Angular app into the nginx document root.
 # Angular CLI outputs to dist/<projectName>/browser for SSR-capable projects.
-COPY --from=builder /app/dist/frontend/browser /usr/share/nginx/html
+COPY --from=builder --chown=nginx:nginx /app/dist/frontend/browser /tmp/nginx/html
 
 # Copy the hardened nginx configuration.
 COPY nginx.conf /etc/nginx/conf.d/default.conf

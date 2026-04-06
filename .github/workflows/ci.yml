@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload SpotBugs report
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: spotbugs-report
           path: backend/target/spotbugsXml.xml
@@ -153,7 +153,7 @@ jobs:
 
       # Upload JaCoCo HTML report for manual review
       - name: Upload coverage report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: jacoco-coverage-report
@@ -168,7 +168,7 @@ jobs:
         run: bash scripts/export-openapi.sh
 
       - name: Upload OpenAPI JSON
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: openapi-contract
           path: backend/target/api-contract/openapi.json
@@ -226,7 +226,7 @@ jobs:
 
       # Upload Karma HTML/JSON coverage for PR review
       - name: Upload frontend coverage report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: frontend-coverage-report
@@ -259,7 +259,7 @@ jobs:
 
       # Cache the build output for the docker-build job to reuse
       - name: Upload build artefact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-dist
           path: frontend/dist/
@@ -326,7 +326,7 @@ jobs:
 
       - name: Upload Grype gate output
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: grype-fs-gate
           path: grype-fs-gate.txt
@@ -353,7 +353,7 @@ jobs:
 
       # Download the pre-built Angular bundle to avoid rebuilding in Docker
       - name: Download frontend artefact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: frontend-dist
           path: frontend/dist/
@@ -583,7 +583,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download OpenAPI artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: openapi-contract
           path: backend/target/api-contract/
@@ -661,7 +661,7 @@ jobs:
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-report
