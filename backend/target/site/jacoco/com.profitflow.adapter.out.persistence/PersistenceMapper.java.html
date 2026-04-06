@@ -39,42 +39,42 @@ public final class PersistenceMapper {
      * @throws IllegalArgumentException if the entity's currency code is not a valid ISO 4217 code
      */
     public static ResourceCost toResourceCost(ResourceCostEntity entity) {
-<span class="nc" id="L42">        Currency currency = Currency.getInstance(entity.getCurrencyCode());</span>
-<span class="nc" id="L43">        Money money = new Money(entity.getAmount(), currency);</span>
-<span class="nc" id="L44">        return new ResourceCost(entity.getId().toString(), entity.getLabel(), money);</span>
+<span class="fc" id="L42">        Currency currency = Currency.getInstance(entity.getCurrencyCode());</span>
+<span class="fc" id="L43">        Money money = new Money(entity.getAmount(), currency);</span>
+<span class="fc" id="L44">        return new ResourceCost(entity.getId().toString(), entity.getLabel(), money);</span>
     }
 
     /** Converts a domain {@link ResourceCost} to a {@link ResourceCostEntity} ready for persistence. */
     public static ResourceCostEntity toResourceCostEntity(ResourceCost resourceCost) {
-<span class="nc" id="L49">        return new ResourceCostEntity(</span>
-<span class="nc" id="L50">                UUID.fromString(resourceCost.id()),</span>
-<span class="nc" id="L51">                resourceCost.label(),</span>
-<span class="nc" id="L52">                resourceCost.amount().amount(),</span>
-<span class="nc" id="L53">                resourceCost.amount().currency().getCurrencyCode());</span>
+<span class="fc" id="L49">        return new ResourceCostEntity(</span>
+<span class="fc" id="L50">                UUID.fromString(resourceCost.id()),</span>
+<span class="fc" id="L51">                resourceCost.label(),</span>
+<span class="fc" id="L52">                resourceCost.amount().amount(),</span>
+<span class="fc" id="L53">                resourceCost.amount().currency().getCurrencyCode());</span>
     }
 
     // ── Activity ──────────────────────────────────────────────────────────────
 
     /** Converts an {@link ActivityEntity} to a domain {@link Activity}. */
     public static Activity toActivity(ActivityEntity entity) {
-<span class="nc" id="L60">        return new Activity(entity.getId().toString(), entity.getName());</span>
+<span class="fc" id="L60">        return new Activity(entity.getId().toString(), entity.getName());</span>
     }
 
     /** Converts a domain {@link Activity} to an {@link ActivityEntity}. */
     public static ActivityEntity toActivityEntity(Activity activity) {
-<span class="nc" id="L65">        return new ActivityEntity(UUID.fromString(activity.id()), activity.name());</span>
+<span class="fc" id="L65">        return new ActivityEntity(UUID.fromString(activity.id()), activity.name());</span>
     }
 
     // ── Product ───────────────────────────────────────────────────────────────
 
     /** Converts a {@link ProductEntity} to a domain {@link Product}. */
     public static Product toProduct(ProductEntity entity) {
-<span class="nc" id="L72">        return new Product(entity.getId().toString(), entity.getName());</span>
+<span class="fc" id="L72">        return new Product(entity.getId().toString(), entity.getName());</span>
     }
 
     /** Converts a domain {@link Product} to a {@link ProductEntity}. */
     public static ProductEntity toProductEntity(Product product) {
-<span class="nc" id="L77">        return new ProductEntity(UUID.fromString(product.id()), product.name());</span>
+<span class="fc" id="L77">        return new ProductEntity(UUID.fromString(product.id()), product.name());</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

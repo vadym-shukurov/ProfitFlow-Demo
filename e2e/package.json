@@ -12,10 +12,13 @@
     "lhci": "lhci autorun --config=lighthouserc.cjs"
   },
   "devDependencies": {
-    "@lhci/cli": "^0.14.0",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.49.1",
     "artillery": "^2.0.21",
     "artillery-plugin-expect": "^2.8.0",
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "tmp": "0.2.5"
   }
 }

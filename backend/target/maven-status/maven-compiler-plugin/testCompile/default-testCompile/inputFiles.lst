@@ -14,7 +14,9 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/ai/ResilientAiAllocatorDecoratorTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/AllocationRulePersistenceAdapterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/DomainEventOutboxProcessorTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/PersistenceMapperTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/RefreshTokenPersistenceAdapterTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/UserLockoutPersistenceAdapterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/application/service/ActivityCatalogServiceTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/application/service/AiSuggestionServiceTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/application/service/AllocationRuleServiceTest.java
@@ -27,6 +29,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/domain/MoneyTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/domain/allocation/AllocationEngineTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/domain/allocation/ProportionalAllocatorTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/DefaultBusinessMetricsTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/DefaultDomainEventDispatchAdapterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/PermissiveAllocationExecutionPolicyTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/AuditAspectTest.java

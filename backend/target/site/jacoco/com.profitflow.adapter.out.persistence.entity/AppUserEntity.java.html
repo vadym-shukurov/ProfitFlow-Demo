@@ -96,11 +96,11 @@ public class AppUserEntity {
     }
 
     public int getFailedLoginAttempts() {
-<span class="nc" id="L99">        return failedLoginAttempts;</span>
+<span class="fc" id="L99">        return failedLoginAttempts;</span>
     }
 
     public Instant getLockedUntil() {
-<span class="nc" id="L103">        return lockedUntil;</span>
+<span class="fc" id="L103">        return lockedUntil;</span>
     }
 
     public Instant getCreatedAt() {
@@ -109,21 +109,21 @@ public class AppUserEntity {
 
     /** Returns {@code true} if the account is currently locked (lockout window active). */
     public boolean isLocked() {
-<span class="pc bpc" id="L112" title="3 of 4 branches missed.">        return lockedUntil != null &amp;&amp; Instant.now().isBefore(lockedUntil);</span>
+<span class="pc bpc" id="L112" title="1 of 4 branches missed.">        return lockedUntil != null &amp;&amp; Instant.now().isBefore(lockedUntil);</span>
     }
 
     /** Records a failed login attempt; locks the account if threshold is exceeded. */
     public void recordFailedLogin() {
-<span class="nc" id="L117">        this.failedLoginAttempts++;</span>
-<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (this.failedLoginAttempts &gt;= MAX_FAILED_ATTEMPTS) {</span>
-<span class="nc" id="L119">            this.lockedUntil = Instant.now().plusSeconds(LOCKOUT_MINUTES * 60L);</span>
+<span class="fc" id="L117">        this.failedLoginAttempts++;</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (this.failedLoginAttempts &gt;= MAX_FAILED_ATTEMPTS) {</span>
+<span class="fc" id="L119">            this.lockedUntil = Instant.now().plusSeconds(LOCKOUT_MINUTES * 60L);</span>
         }
-<span class="nc" id="L121">    }</span>
+<span class="fc" id="L121">    }</span>
 
     /** Resets the failed-login counter and clears any active lockout on success. */
     public void recordSuccessfulLogin() {
-<span class="nc" id="L125">        this.failedLoginAttempts = 0;</span>
-<span class="nc" id="L126">        this.lockedUntil = null;</span>
-<span class="nc" id="L127">    }</span>
+<span class="fc" id="L125">        this.failedLoginAttempts = 0;</span>
+<span class="fc" id="L126">        this.lockedUntil = null;</span>
+<span class="fc" id="L127">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

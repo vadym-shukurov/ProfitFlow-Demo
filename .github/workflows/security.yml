@@ -311,6 +311,7 @@ jobs:
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@v0.35.0
         with:
+          scan-type: image
           image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
           format: sarif
           output: trivy-${{ matrix.image }}.sarif
@@ -318,14 +319,14 @@ jobs:
           ignore-unfixed: false  # Weekly scan: include ALL known CVEs
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-${{ matrix.image }}.sarif
           category: trivy-weekly-${{ matrix.image }}
 
       - name: Notify on findings
-        if: failure()
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.27
         with:
           payload: |

@@ -11,6 +11,7 @@ paths = [
   "backend/src/main/resources/certs/private.pem",
 
   # Some historical commits accidentally contained built artifacts (also removed from HEAD)
-  "backend/target/site/jacoco/**",
-  "backend/target/classes/**"
+  # NOTE: gitleaks expects regexes here (not glob patterns).
+  "backend/target/site/jacoco/.*",
+  "backend/target/classes/.*"
 ]
