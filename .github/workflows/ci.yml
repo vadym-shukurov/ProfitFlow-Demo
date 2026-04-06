@@ -288,9 +288,10 @@ jobs:
         uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: ${{ github.workspace }}
+          scanners: vuln
           format: sarif
-          output: trivy-fs.sarif
+          output: ${{ github.workspace }}/trivy-fs.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "0"
@@ -299,13 +300,13 @@ jobs:
       - name: Assert SARIF exists
         if: always()
         run: |
-          ls -la
-          test -f trivy-fs.sarif
+          ls -la "${{ github.workspace }}"
+          test -f "${{ github.workspace }}/trivy-fs.sarif"
 
       # Upload SARIF to GitHub Security → Code scanning tab
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: always() && hashFiles('trivy-fs.sarif') != ''
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
@@ -316,9 +317,10 @@ jobs:
         uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: ${{ github.workspace }}
+          scanners: vuln
           format: table
-          output: trivy-fs-gate.txt
+          output: ${{ github.workspace }}/trivy-fs-gate.txt
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "1"
