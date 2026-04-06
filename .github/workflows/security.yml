@@ -47,10 +47,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: temurin
@@ -58,7 +58,7 @@ jobs:
 
       # Cache the NVD database between runs — saves ~4 minutes per scan
       - name: Cache NVD database
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.m2/dependency-check-data
           key: nvd-db-${{ hashFiles('backend/pom.xml') }}
@@ -120,7 +120,7 @@ jobs:
           exit 0
 
       - name: Upload OWASP HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: owasp-dependency-check-report
@@ -154,10 +154,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: npm
@@ -186,7 +186,7 @@ jobs:
           echo "No critical npm vulnerabilities found."
 
       - name: Upload npm audit report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: npm-audit-report
@@ -210,11 +210,11 @@ jobs:
         language: [java, javascript]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 21
         if: matrix.language == 'java'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: temurin
@@ -251,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Full history — Gitleaks scans all commits
 
@@ -260,6 +260,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Set GITLEAKS_LICENSE if using the commercial version (for orgs)
+        with:
+          config-path: .gitleaks.toml
 
   # ── Dependency Review (PR gate) ────────────────────────────────────────────
   # Blocks PRs that introduce new HIGH/CRITICAL CVEs in pom.xml or package-lock.json.
@@ -270,7 +272,7 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
@@ -307,7 +309,7 @@ jobs:
 
       # Pinned to a specific commit SHA for supply-chain security (no floating @master tag)
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@76071ef0d7aad71c4a07d374f76de96e85dfbfbd
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
           format: sarif

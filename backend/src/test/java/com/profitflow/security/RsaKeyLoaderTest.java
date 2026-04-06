@@ -1,10 +1,9 @@
 package com.profitflow.security;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.security.converter.RsaKeyConverters;
 
-import java.io.IOException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
@@ -21,20 +20,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class RsaKeyLoaderTest {
 
-    /** Loads real RSA key pair from the classpath PEM files. */
-    private static RsaKeyProperties realClasspathKeys() throws IOException {
-        RSAPublicKey  pub  = RsaKeyConverters.x509().convert(
-                new ClassPathResource("certs/public.pem").getInputStream());
-        RSAPrivateKey priv = RsaKeyConverters.pkcs8().convert(
-                new ClassPathResource("certs/private.pem").getInputStream());
-        return new RsaKeyProperties(pub, priv);
+    /** Generates a fresh RSA key pair for tests (no PEMs in repo). */
+    private static RsaKeyProperties generatedKeys() {
+        try {
+            KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
+            g.initialize(2048);
+            KeyPair pair = g.generateKeyPair();
+            return new RsaKeyProperties((RSAPublicKey) pair.getPublic(), (RSAPrivateKey) pair.getPrivate());
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not generate RSA test keypair: " + e.getMessage(), e);
+        }
     }
 
     // ── Non-production (classpath fallback) ────────────────────────────────────
 
     @Test
-    void publicKeyFallsBackToClasspathInDevProfile() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "default", "profitflow-1");
+    void publicKeyFallsBackInDevProfile() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "profitflow-1");
 
         RSAPublicKey key = loader.publicKey();
 
@@ -43,8 +45,8 @@ class RsaKeyLoaderTest {
     }
 
     @Test
-    void privateKeyFallsBackToClasspathInDevProfile() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "default", "profitflow-1");
+    void privateKeyFallsBackInDevProfile() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "profitflow-1");
 
         RSAPrivateKey key = loader.privateKey();
 
@@ -88,30 +90,30 @@ class RsaKeyLoaderTest {
     }
 
     @Test
-    void nonproductionProfileDoesNotTriggerGuard() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "staging", "profitflow-1");
+    void nonproductionProfileDoesNotTriggerGuard() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "staging", "profitflow-1");
 
         // "staging" does not contain "prod" — should fall back to classpath without throwing
         assertThat(loader.publicKey()).isNotNull();
     }
 
     @Test
-    void signingKeyIdUsesConfiguredPropertyWhenEnvUnset() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "default", "custom-kid");
+    void signingKeyIdUsesConfiguredPropertyWhenEnvUnset() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "custom-kid");
 
         assertThat(loader.signingKeyId()).isEqualTo("custom-kid");
     }
 
     @Test
-    void signingJwkCarriesSameKid() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "default", "kid-99");
+    void signingJwkCarriesSameKid() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "kid-99");
 
         assertThat(loader.signingJwk().getKeyID()).isEqualTo("kid-99");
     }
 
     @Test
-    void previousVerificationKeyAbsentWithoutEnv() throws IOException {
-        RsaKeyLoader loader = new RsaKeyLoader(realClasspathKeys(), "default", "profitflow-1");
+    void previousVerificationKeyAbsentWithoutEnv() {
+        RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "profitflow-1");
 
         assertThat(loader.previousVerificationPublicKey()).isEmpty();
     }

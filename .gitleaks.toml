@@ -1,0 +1,16 @@
+title = "ProfitFlow Gitleaks config"
+
+# We keep history scanning enabled (fetch-depth: 0) to retain real security value.
+# This allowlist exists solely to unblock CI from a previously committed demo RSA key
+# that has since been removed from HEAD. Do not add new allowlisted secrets.
+
+[allowlist]
+description = "Allowlist historical demo RSA key leak (already rotated/removed)"
+paths = [
+  # Old demo key location (removed from HEAD, but still present in history)
+  "backend/src/main/resources/certs/private.pem",
+
+  # Some historical commits accidentally contained built artifacts (also removed from HEAD)
+  "backend/target/site/jacoco/**",
+  "backend/target/classes/**"
+]

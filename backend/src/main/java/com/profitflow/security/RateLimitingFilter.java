@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 /**
  * IP-level rate limiting delegating to {@link RateLimiterBackend}.
@@ -27,7 +26,6 @@ import java.util.regex.Pattern;
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
-    private static final Pattern LOG_SAFE = Pattern.compile("[A-Za-z0-9 ._:/?\\-]{1,200}");
 
     private final ClientIpResolverPort clientIpResolver;
     private final RateLimiterBackend   rateLimiterBackend;
@@ -65,18 +63,42 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private static String sanitizeForLogs(String value) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return "n/a";
         }
-        // Prevent log forging and keep logs parseable:
-        // - remove control chars
-        // - allowlist a small set of characters (drop everything else)
-        // - cap length to avoid unbounded log amplification
-        String stripped = value.replaceAll("[\\r\\n\\t\\u0000\\f]", "");
-        String candidate = stripped.length() > 200 ? stripped.substring(0, 200) : stripped;
-        if (LOG_SAFE.matcher(candidate).matches()) {
-            return candidate;
+        return allowlistedLogValue(value, 200);
+    }
+
+    private static String allowlistedLogValue(String value, int maxLen) {
+        // Log-forging defense (CWE-117): keep logs single-line and parseable.
+        // We use a strict allowlist and cap length to prevent amplification.
+        StringBuilder out = new StringBuilder(Math.min(value.length(), maxLen));
+        for (int i = 0; i < value.length() && out.length() < maxLen; i++) {
+            char c = value.charAt(i);
+            // Strip line breaks and other control chars completely.
+            if (isControlChar(c)) {
+                continue;
+            }
+            boolean allowed = isAllowedLogChar(c);
+            out.append(allowed ? c : '_');
         }
-        return candidate.replaceAll("[^A-Za-z0-9 ._:/?\\-]", "_");
+        return out.toString();
+    }
+
+    private static boolean isControlChar(char c) {
+        return c == '\r' || c == '\n' || c == '\t' || c == '\f' || c == 0;
+    }
+
+    private static boolean isAllowedLogChar(char c) {
+        if (c >= 'a' && c <= 'z') {
+            return true;
+        }
+        if (c >= 'A' && c <= 'Z') {
+            return true;
+        }
+        if (c >= '0' && c <= '9') {
+            return true;
+        }
+        return c == ' ' || c == '.' || c == '_' || c == ':' || c == '/' || c == '?' || c == '-';
     }
 }

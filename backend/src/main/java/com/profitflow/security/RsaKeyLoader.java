@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -30,13 +32,8 @@ import java.util.Optional;
  *
  * <h2>Production setup</h2>
  * <pre>
- * RSA_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----
- * MIIEvAIBADANBgkqhkiG9w...
- * -----END PRIVATE KEY-----"
- *
- * RSA_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----
- * MIIBIjANBgkqhkiG9w0BAQ...
- * -----END PUBLIC KEY-----"
+ * RSA_PRIVATE_KEY_PEM="(PEM omitted — do not paste keys into source control)"
+ * RSA_PUBLIC_KEY_PEM="(PEM omitted — do not paste keys into source control)"
  * </pre>
  *
  * The keys must be injected via a secrets manager (Vault, AWS Secrets Manager,
@@ -63,6 +60,9 @@ public class RsaKeyLoader {
 
     // Classpath fallback — active only in local dev / CI with local profile
     private final RsaKeyProperties classpathKeys;
+
+    // Ephemeral dev fallback (generated once per JVM when no key material is configured)
+    private volatile KeyPair generatedDevKeyPair;
 
     // Active profile — used to determine whether to block classpath keys
     private final String activeProfiles;
@@ -130,8 +130,16 @@ public class RsaKeyLoader {
         if (pem != null && !pem.isBlank()) {
             return parsePublicKey(pem);
         }
-        guardClasspathUsage("RSA_PUBLIC_KEY_PEM");
-        return classpathKeys.rsaPublicKey();
+        if (isProductionProfile()) {
+            guardClasspathUsage("RSA_PUBLIC_KEY_PEM");
+        }
+        RSAPublicKey fromClasspath = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;
+        if (fromClasspath != null) {
+            log.warn("SECURITY WARNING: RSA_PUBLIC_KEY_PEM is not set. Using bundled classpath public key. "
+                    + "This is acceptable for local development only — NEVER in production.");
+            return fromClasspath;
+        }
+        return (RSAPublicKey) devKeyPair().getPublic();
     }
 
     /**
@@ -144,11 +152,41 @@ public class RsaKeyLoader {
         if (pem != null && !pem.isBlank()) {
             return parsePrivateKey(pem);
         }
-        guardClasspathUsage("RSA_PRIVATE_KEY_PEM");
-        return classpathKeys.rsaPrivateKey();
+        if (isProductionProfile()) {
+            guardClasspathUsage("RSA_PRIVATE_KEY_PEM");
+        }
+        RSAPrivateKey fromClasspath = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;
+        if (fromClasspath != null) {
+            log.warn("SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set. Using bundled classpath private key. "
+                    + "This is acceptable for local development only — NEVER in production.");
+            return fromClasspath;
+        }
+        log.warn("SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set and no classpath private key is configured. "
+                + "Generating an ephemeral dev keypair for this JVM. Tokens will be invalid after restart.");
+        return (RSAPrivateKey) devKeyPair().getPrivate();
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private KeyPair devKeyPair() {
+        KeyPair current = generatedDevKeyPair;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (generatedDevKeyPair != null) {
+                return generatedDevKeyPair;
+            }
+            try {
+                KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
+                g.initialize(2048);
+                generatedDevKeyPair = g.generateKeyPair();
+                return generatedDevKeyPair;
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to generate ephemeral RSA keypair: " + e.getMessage(), e);
+            }
+        }
+    }
 
     /**
      * Rejects startup in the {@code prod} profile if the named env var is absent.

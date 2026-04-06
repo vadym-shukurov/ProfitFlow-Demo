@@ -115,7 +115,7 @@ jobs:
       url: https://staging.profitflow.example.com
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -293,7 +293,7 @@ jobs:
       previous_tag: ${{ steps.get-current.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
