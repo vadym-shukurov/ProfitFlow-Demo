@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * IP-level rate limiting delegating to {@link RateLimiterBackend}.
@@ -26,6 +27,7 @@ import java.io.IOException;
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
+    private static final Pattern LOG_SAFE = Pattern.compile("[A-Za-z0-9 ._:/?\\-]{1,200}");
 
     private final ClientIpResolverPort clientIpResolver;
     private final RateLimiterBackend   rateLimiterBackend;
@@ -67,7 +69,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (value == null) {
             return "n/a";
         }
-        // Prevent log forging by stripping control characters.
-        return value.replaceAll("[\\r\\n\\t\\u0000\\f]", "");
+        // Prevent log forging and keep logs parseable:
+        // - remove control chars
+        // - allowlist a small set of characters (drop everything else)
+        // - cap length to avoid unbounded log amplification
+        String stripped = value.replaceAll("[\\r\\n\\t\\u0000\\f]", "");
+        String candidate = stripped.length() > 200 ? stripped.substring(0, 200) : stripped;
+        if (LOG_SAFE.matcher(candidate).matches()) {
+            return candidate;
+        }
+        return candidate.replaceAll("[^A-Za-z0-9 ._:/?\\-]", "_");
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * IP-level rate limiting delegating to {@link RateLimiterBackend}.
@@ -25,16 +26,17 @@ import java.io.IOException;
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-<span class="fc" id="L28">    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);</span>
+<span class="fc" id="L29">    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);</span>
+<span class="fc" id="L30">    private static final Pattern LOG_SAFE = Pattern.compile(&quot;[A-Za-z0-9 ._:/?\\-]{1,200}&quot;);</span>
 
     private final ClientIpResolverPort clientIpResolver;
     private final RateLimiterBackend   rateLimiterBackend;
 
     public RateLimitingFilter(ClientIpResolverPort clientIpResolver,
-<span class="fc" id="L34">                              RateLimiterBackend rateLimiterBackend) {</span>
-<span class="fc" id="L35">        this.clientIpResolver   = clientIpResolver;</span>
-<span class="fc" id="L36">        this.rateLimiterBackend = rateLimiterBackend;</span>
-<span class="fc" id="L37">    }</span>
+<span class="fc" id="L36">                              RateLimiterBackend rateLimiterBackend) {</span>
+<span class="fc" id="L37">        this.clientIpResolver   = clientIpResolver;</span>
+<span class="fc" id="L38">        this.rateLimiterBackend = rateLimiterBackend;</span>
+<span class="fc" id="L39">    }</span>
 
     @Override
     protected void doFilterInternal(
@@ -42,33 +44,41 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain chain) throws ServletException, IOException {
 
-<span class="fc" id="L45">        String ipRaw = clientIpResolver.resolve(request);</span>
-<span class="fc" id="L46">        String pathRaw = request.getRequestURI();</span>
-<span class="fc" id="L47">        String ip = sanitizeForLogs(ipRaw);</span>
-<span class="fc" id="L48">        String path = sanitizeForLogs(pathRaw);</span>
+<span class="fc" id="L47">        String ipRaw = clientIpResolver.resolve(request);</span>
+<span class="fc" id="L48">        String pathRaw = request.getRequestURI();</span>
+<span class="fc" id="L49">        String ip = sanitizeForLogs(ipRaw);</span>
+<span class="fc" id="L50">        String path = sanitizeForLogs(pathRaw);</span>
 
-<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
-<span class="fc" id="L51">            chain.doFilter(request, response);</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (rateLimiterBackend.tryConsume(ip, path)) {</span>
+<span class="fc" id="L53">            chain.doFilter(request, response);</span>
         } else {
-<span class="fc" id="L53">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
-<span class="fc" id="L54">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
+<span class="fc" id="L55">            String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc" id="L56">            log.warn(&quot;Rate limit exceeded for IP={} path={} correlationId={}&quot;,</span>
                     ip, path, correlationId);
-<span class="fc" id="L56">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
-<span class="fc" id="L57">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
-<span class="fc" id="L58">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
-<span class="fc bfc" id="L59" title="All 2 branches covered.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
-<span class="fc" id="L60">            response.getWriter().write(</span>
+<span class="fc" id="L58">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
+<span class="fc" id="L59">            response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
+<span class="fc" id="L60">            response.setHeader(&quot;Retry-After&quot;, &quot;60&quot;);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            String cid = correlationId != null ? correlationId : &quot;n/a&quot;;</span>
+<span class="fc" id="L62">            response.getWriter().write(</span>
                     &quot;{\&quot;message\&quot;:\&quot;Too many requests — please wait before retrying.\&quot;,&quot;
                     + &quot;\&quot;correlationId\&quot;:\&quot;&quot; + cid + &quot;\&quot;}&quot;);
         }
-<span class="fc" id="L64">    }</span>
+<span class="fc" id="L66">    }</span>
 
     private static String sanitizeForLogs(String value) {
-<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (value == null) {</span>
-<span class="nc" id="L68">            return &quot;n/a&quot;;</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L70">            return &quot;n/a&quot;;</span>
         }
-        // Prevent log forging by stripping control characters.
-<span class="fc" id="L71">        return value.replaceAll(&quot;[\\r\\n\\t\\u0000\\f]&quot;, &quot;&quot;);</span>
+        // Prevent log forging and keep logs parseable:
+        // - remove control chars
+        // - allowlist a small set of characters (drop everything else)
+        // - cap length to avoid unbounded log amplification
+<span class="fc" id="L76">        String stripped = value.replaceAll(&quot;[\\r\\n\\t\\u0000\\f]&quot;, &quot;&quot;);</span>
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        String candidate = stripped.length() &gt; 200 ? stripped.substring(0, 200) : stripped;</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (LOG_SAFE.matcher(candidate).matches()) {</span>
+<span class="fc" id="L79">            return candidate;</span>
+        }
+<span class="nc" id="L81">        return candidate.replaceAll(&quot;[^A-Za-z0-9 ._:/?\\-]&quot;, &quot;_&quot;);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -282,6 +282,9 @@ jobs:
       - name: Trivy filesystem scan (SARIF)
         id: trivy-fs-sarif
         run: |
+          # Defensive cleanup: if a contributor accidentally commits generated E2E reports,
+          # remove them before scanning to avoid noisy/un-actionable findings.
+          rm -rf e2e/playwright-report e2e/test-results || true
           docker run --rm \
             -v "${PWD}:/work" \
             -w /work \
@@ -319,6 +322,7 @@ jobs:
         id: trivy-fs-gate
         continue-on-error: true
         run: |
+          rm -rf e2e/playwright-report e2e/test-results || true
           docker run --rm \
             -v "${PWD}:/work" \
             -w /work \

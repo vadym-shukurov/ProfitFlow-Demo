@@ -1,0 +1,21 @@
+# CodeQL configuration for ProfitFlow.
+#
+# Goal: scan production code, not generated artifacts.
+# Generated reports (e.g. Playwright HTML) may contain minified bundles that trigger
+# noisy findings (e.g. trivial-conditionals) and don't represent shipped source.
+
+name: "ProfitFlow CodeQL config"
+
+paths-ignore:
+  # E2E generated artifacts
+  - "e2e/playwright-report/**"
+  - "e2e/test-results/**"
+  - "e2e/.lighthouseci/**"
+
+  # Build outputs
+  - "backend/target/**"
+  - "frontend/dist/**"
+  - "frontend/coverage/**"
+  - "frontend/.angular/**"
+  - "**/node_modules/**"
+
