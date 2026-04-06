@@ -36,16 +36,17 @@ RUN apk add --no-cache libavif=1.3.0-r0 || apk add --no-cache -u libavif
 RUN apk add --no-cache -u tiff libtiff || apk add --no-cache -u tiff || true
 RUN apk add --no-cache -u nginx nghttp2-libs curl libcurl || true
 
-# Document root for the SPA (nginx.conf root directive). Owned by nginx before COPY of static assets.
-RUN mkdir -p /tmp/nginx/html && chown -R nginx:nginx /tmp/nginx
+# Document root for the SPA (nginx.conf root directive).
+RUN mkdir -p /tmp/nginx/html
 
 # Copy the compiled Angular app into the nginx document root.
 # Angular CLI outputs to dist/<projectName>/browser for SSR-capable projects.
-# --chmod=555: no write bits on copied tree; dirs stay traversable (docker:S6504 — flag must be on COPY).
-COPY --from=builder --chown=nginx:nginx --chmod=555 /app/dist/frontend/browser /tmp/nginx/html
+# docker:S6504: COPY as root:root + mode (no write); chown to nginx in a separate RUN.
+COPY --from=builder --chown=root:root --chmod=555 /app/dist/frontend/browser /tmp/nginx/html
+RUN chown -R nginx:nginx /tmp/nginx/html
 
-# Copy the hardened nginx configuration (read-only for owner; docker:S6504).
-COPY --chown=nginx:nginx --chmod=444 nginx.conf /etc/nginx/conf.d/default.conf
+# Hardened nginx configuration — world-readable; nginx runs unprivileged (docker:S6504).
+COPY --chown=root:root --chmod=444 nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 

@@ -91,7 +91,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # JaCoCo XML (verify runs tests + report; skip ITs/Docker, skip heavy plugins for speed).
+      # Build Java before Sonar: mvn verify runs compile → test → package, producing
+      # backend/target/classes (and test-classes) for sonar.java.binaries plus JaCoCo XML.
       # With skipITs, branch coverage is slightly below the pom's 75% JaCoCo gate — main CI still
       # enforces thresholds on full verify -DskipITs=false. Here we only need XML for Sonar.
       - name: Backend verify + JaCoCo report

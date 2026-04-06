@@ -38,8 +38,9 @@ RUN apt-get update \
 WORKDIR /app
 
 # Copy only the fat JAR — no source, no test classes, no POM.
-# --chmod=444: no write bits on the artifact (docker:S6504); one COPY line so scanners see the flag.
-COPY --from=builder --chown=nonroot:nonroot --chmod=444 /build/app.jar app.jar
+# docker:S6504: COPY as root:root + explicit mode (Sonar-compliant); then hand off ownership without write bits.
+COPY --from=builder --chown=root:root --chmod=444 /build/app.jar app.jar
+RUN chown nonroot:nonroot /app/app.jar
 
 EXPOSE 8080
 
