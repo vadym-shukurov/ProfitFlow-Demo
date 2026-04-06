@@ -404,6 +404,7 @@ jobs:
         with:
           context: backend
           file: backend/Dockerfile
+          target: runtime
           push: false
           pull: true
           tags: profitflow-api:ci
@@ -422,6 +423,7 @@ jobs:
         with:
           context: backend
           file: backend/Dockerfile
+          target: runtime
           push: true
           pull: true
           tags: ${{ steps.meta-backend.outputs.tags }}
