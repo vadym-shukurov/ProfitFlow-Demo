@@ -72,13 +72,13 @@ jobs:
       - name: Backend verify + JaCoCo report
         if: steps.cfg.outputs.skip == 'false'
         working-directory: backend
-        run: mvn -B verify -DskipITs=true -Dspotbugs.skip=true -Dpmd.skip=true -Dcheckstyle.skip=true
+        run: mvn -B -U verify -DskipITs=true -Dspotbugs.skip=true -Dpmd.skip=true -Dcheckstyle.skip=true
 
       - name: Frontend unit tests + LCOV
         if: steps.cfg.outputs.skip == 'false'
         working-directory: frontend
         run: |
-          npm ci --prefer-offline
+          npm ci --prefer-online
           npx ng test --watch=false --browsers=ChromeHeadless --code-coverage --no-progress
 
       - name: Validate SonarCloud project secrets
