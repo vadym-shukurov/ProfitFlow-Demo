@@ -42,8 +42,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain chain) throws ServletException, IOException {
 
-        String ip   = clientIpResolver.resolve(request);
-        String path = request.getRequestURI();
+        String ipRaw = clientIpResolver.resolve(request);
+        String pathRaw = request.getRequestURI();
+        String ip = sanitizeForLogs(ipRaw);
+        String path = sanitizeForLogs(pathRaw);
 
         if (rateLimiterBackend.tryConsume(ip, path)) {
             chain.doFilter(request, response);
@@ -59,5 +61,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                     "{\"message\":\"Too many requests — please wait before retrying.\","
                     + "\"correlationId\":\"" + cid + "\"}");
         }
+    }
+
+    private static String sanitizeForLogs(String value) {
+        if (value == null) return "n/a";
+        // Prevent log forging by stripping control characters.
+        return value.replaceAll("[\\r\\n\\t\\0\\f]", "");
     }
 }

@@ -96,7 +96,16 @@ public class SecurityConfig {
         return http
                 // ── Session management ──────────────────────────────────────
                 // Stateless JWT — no HttpSession, no cookies
-                .csrf(AbstractHttpConfigurer::disable)
+                // Keep CSRF protection enabled by default, but ignore stateless API endpoints
+                // (JWT bearer auth; no cookies). This avoids accidental CSRF disablement for any
+                // future browser/session endpoints.
+                .csrf(csrf -> csrf.ignoringRequestMatchers(
+                        "/api/**",
+                        "/actuator/**",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                ))
                 .sessionManagement(sm ->
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
