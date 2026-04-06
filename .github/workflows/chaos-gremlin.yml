@@ -1,6 +1,6 @@
 # Manual chaos checklist — does not run Gremlin without your secrets and targets.
 # Link: https://github.com/gremlin/chaos-engineering-tools
-name: Chaos — Gremlin (manual)
+name: Chaos - Gremlin (manual)
 
 on:
   workflow_dispatch:

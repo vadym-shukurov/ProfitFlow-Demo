@@ -1,6 +1,5 @@
 import { HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
-import { throwError, timer } from 'rxjs';
-import { mergeMap, retryWhen } from 'rxjs/operators';
+import { retry, throwError, timer } from 'rxjs';
 
 /**
  * Automatic retry interceptor with exponential back-off.
@@ -34,23 +33,16 @@ export const retryInterceptor: HttpInterceptorFn = (
   }
 
   return next(req).pipe(
-    retryWhen(errors =>
-      errors.pipe(
-        mergeMap((error: any, i) => {
-          if (!isRetryableError(error)) {
-            return throwError(() => error);
-          }
-
-          const attempt = i + 1; // 1..n
-          if (attempt > 3) {
-            return throwError(() => error);
-          }
-
-          const baseMs = 500 * Math.pow(2, attempt - 1);
-          return timer(baseMs);
-        }),
-      ),
-    ),
+    retry({
+      count: 3,
+      delay: (error, retryCount) => {
+        if (!isRetryableError(error)) {
+          return throwError(() => error);
+        }
+        const baseMs = 500 * Math.pow(2, retryCount - 1);
+        return timer(baseMs);
+      },
+    }),
   );
 };
 
