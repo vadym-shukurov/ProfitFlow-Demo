@@ -3,6 +3,7 @@ com/profitflow/security/RateLimitingFilterTest$3.class
 com/profitflow/domain/MoneyTest.class
 com/profitflow/security/SecurityEnvironmentValidatorTest.class
 com/profitflow/security/FallbackJwtDecoderTest.class
+com/profitflow/adapter/in/web/WebConfigTest.class
 com/profitflow/security/SpringCurrentUserPortTest.class
 com/profitflow/security/ratelimit/RedisRateLimiterBackendTest$FakeRedis.class
 com/profitflow/ProfitflowApplicationTests.class
@@ -19,6 +20,7 @@ com/profitflow/adapter/in/web/ApiExceptionHandlerTest.class
 com/profitflow/security/RateLimitingFilterTest$2.class
 com/profitflow/adapter/out/persistence/UserLockoutPersistenceAdapterTest.class
 com/profitflow/application/service/AllocationRunServiceTest.class
+com/profitflow/security/RateLimitingFilterTest$6.class
 com/profitflow/security/SecurityHeadersSmokeTest.class
 com/profitflow/security/RsaKeyLoaderTest.class
 com/profitflow/adapter/out/persistence/PersistenceMapperTest.class
@@ -38,9 +40,11 @@ com/profitflow/security/AuditAspectTest$2DomainEntity.class
 com/profitflow/security/RateLimitingFilterTest.class
 com/profitflow/application/service/AiSuggestionServiceTest.class
 com/profitflow/security/SensitiveApiCacheHeaderFilterTest.class
+com/profitflow/security/RateLimitingFilterTest$5.class
 com/profitflow/security/AuditAspectTest$1.class
 com/profitflow/adapter/in/web/ActivityControllerTest.class
 com/profitflow/application/service/AllocationRunQueryServiceTest.class
+com/profitflow/security/RateLimitingFilterTest$4.class
 com/profitflow/adapter/in/web/AiSuggestionControllerTest.class
 com/profitflow/adapter/out/persistence/RefreshTokenPersistenceAdapterTest.class
 com/profitflow/security/AuditAspectTest$1DomainEntity.class

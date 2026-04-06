@@ -2,7 +2,7 @@
 <pmd-cpd xmlns="https://pmd-code.org/schema/cpd-report"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          pmdVersion="7.7.0"
-         timestamp="2026-04-06T19:00:08.012582+02:00"
+         timestamp="2026-04-07T01:08:13.493351+02:00"
          version="1.0.0"
          xsi:schemaLocation="https://pmd-code.org/schema/cpd-report https://pmd.github.io/schema/cpd-report_1_0_0.xsd">
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/ProfitflowApplication.java"
@@ -30,7 +30,7 @@
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/ResourceCostController.java"
          totalNumberOfTokens="246"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebConfig.java"
-         totalNumberOfTokens="255"/>
+         totalNumberOfTokens="254"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebMapper.java"
          totalNumberOfTokens="114"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/dto/ActivityProductRuleDto.java"
@@ -272,7 +272,7 @@
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AppUserDetailsService.java"
          totalNumberOfTokens="131"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AuditAspect.java"
-         totalNumberOfTokens="307"/>
+         totalNumberOfTokens="393"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AuditService.java"
          totalNumberOfTokens="406"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/AuthConfig.java"
@@ -294,7 +294,7 @@
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RevokedTokenValidator.java"
          totalNumberOfTokens="85"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RsaKeyLoader.java"
-         totalNumberOfTokens="854"/>
+         totalNumberOfTokens="883"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RsaKeyProperties.java"
          totalNumberOfTokens="19"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityConfig.java"

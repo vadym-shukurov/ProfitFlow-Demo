@@ -47,7 +47,7 @@ public class ProductCatalogService implements ProductCatalogUseCase {
      */
     @Override
     @AuditedOperation(action = &quot;PRODUCT_CREATED&quot;, entityType = &quot;Product&quot;,
-                      entityIdSpEL = &quot;#result.id()&quot;)
+                      entityIdSpEL = &quot;#result.id&quot;)
     @CacheEvict(value = CacheNames.PRODUCTS, allEntries = true)
     public Product createProduct(String name) {
 <span class="fc bfc" id="L53" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>

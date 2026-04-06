@@ -6,12 +6,10 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.expression.Expression;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,9 +18,10 @@ import org.springframework.stereotype.Component;
  * writes an audit log entry &lt;em&gt;after&lt;/em&gt; each call (whether successful or not).
  *
  * &lt;h2&gt;Entity ID extraction&lt;/h2&gt;
- * If {@link AuditedOperation#entityIdSpEL()} is set, the expression is evaluated
- * against the method's return value (using {@code #result} as root) and the
- * result is stored as the {@code entityId} in the audit entry.
+ * If {@link AuditedOperation#entityIdSpEL()} is set, a &lt;em&gt;property path&lt;/em&gt; is read
+ * from the method's return value (optional {@code #result.} prefix) and the value is
+ * stored as the {@code entityId} in the audit entry. Only simple paths like {@code id}
+ * or {@code user.id} are allowed — no SpEL or method calls.
  *
  * &lt;h2&gt;Critical audit mode&lt;/h2&gt;
  * When {@link AuditedOperation#critical()} is {@code true}, the aspect delegates
@@ -42,80 +41,88 @@ import org.springframework.stereotype.Component;
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class AuditAspect {
 
-<span class="fc" id="L45">    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);</span>
-
-<span class="fc" id="L47">    private static final ExpressionParser SPEL = new SpelExpressionParser();</span>
+<span class="fc" id="L44">    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);</span>
 
     private final AuditService auditService;
 
-<span class="fc" id="L51">    public AuditAspect(AuditService auditService) {</span>
-<span class="fc" id="L52">        this.auditService = auditService;</span>
-<span class="fc" id="L53">    }</span>
+<span class="fc" id="L48">    public AuditAspect(AuditService auditService) {</span>
+<span class="fc" id="L49">        this.auditService = auditService;</span>
+<span class="fc" id="L50">    }</span>
 
     @Around(&quot;@annotation(audited)&quot;)
     public Object around(ProceedingJoinPoint pjp, AuditedOperation audited) throws Throwable {
-<span class="fc" id="L57">        Throwable error  = null;</span>
-<span class="fc" id="L58">        Object    result = null;</span>
+<span class="fc" id="L54">        Throwable error  = null;</span>
+<span class="fc" id="L55">        Object    result = null;</span>
 
         try {
-<span class="fc" id="L61">            result = pjp.proceed();</span>
-<span class="fc" id="L62">        } catch (Throwable t) {</span>
-<span class="fc" id="L63">            error = t;</span>
-<span class="fc" id="L64">        }</span>
+<span class="fc" id="L58">            result = pjp.proceed();</span>
+<span class="fc" id="L59">        } catch (Throwable t) {</span>
+<span class="fc" id="L60">            error = t;</span>
+<span class="fc" id="L61">        }</span>
 
-<span class="fc bfc" id="L66" title="All 2 branches covered.">        String details  = error != null ? &quot;FAILED: &quot; + error.getClass().getSimpleName() : &quot;OK&quot;;</span>
-<span class="fc" id="L67">        String entityId = extractEntityId(audited.entityIdSpEL(), result);</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        String details  = error != null ? &quot;FAILED: &quot; + error.getClass().getSimpleName() : &quot;OK&quot;;</span>
+<span class="fc" id="L64">        String entityId = extractEntityId(audited.entityIdSpEL(), result);</span>
 
-<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (audited.critical()) {</span>
-<span class="fc" id="L70">            auditService.recordCritical(audited.action(), audited.entityType(), entityId, details);</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (audited.critical()) {</span>
+<span class="fc" id="L67">            auditService.recordCritical(audited.action(), audited.entityType(), entityId, details);</span>
         } else {
-<span class="fc" id="L72">            auditService.record(audited.action(), audited.entityType(), entityId, details);</span>
+<span class="fc" id="L69">            auditService.record(audited.action(), audited.entityType(), entityId, details);</span>
         }
 
-<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (error != null) {</span>
-<span class="fc" id="L76">            throw error;</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (error != null) {</span>
+<span class="fc" id="L73">            throw error;</span>
         }
-<span class="fc" id="L78">        return result;</span>
+<span class="fc" id="L75">        return result;</span>
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * Evaluates the SpEL expression against the method result to extract an entity ID.
+     * Reads a bean property path from the method result to extract an entity ID.
+     * Uses {@link BeanWrapper} instead of SpEL so the path cannot be evaluated as code.
      *
-     * @param spel   the expression, or blank to skip evaluation
-     * @param result the method return value used as the SpEL root object
+     * @param spel   the path (legacy name: was SpEL-shaped); blank skips
+     * @param result the method return value used as the root bean
      * @return the extracted entity ID string, or {@code null} if none
      */
     private static String extractEntityId(String spel, Object result) {
-<span class="pc bpc" id="L91" title="1 of 6 branches missed.">        if (spel == null || spel.isBlank() || result == null) {</span>
-<span class="fc" id="L92">            return null;</span>
+<span class="pc bpc" id="L89" title="1 of 6 branches missed.">        if (spel == null || spel.isBlank() || result == null) {</span>
+<span class="fc" id="L90">            return null;</span>
         }
         try {
-            // Treat SpEL as potentially unsafe: we support only read-only property paths, and
-            // intentionally reject method calls (e.g. `id()`), type references (T(...)),
-            // constructors (`new ...`), and other expression features.
-            //
             // For compatibility, allow `#result.&lt;path&gt;` and normalize it to `&lt;path&gt;`.
-<span class="fc" id="L100">            String normalized = spel.strip();</span>
-<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            if (normalized.startsWith(&quot;#result.&quot;)) {</span>
-<span class="nc" id="L102">                normalized = normalized.substring(&quot;#result.&quot;.length());</span>
+<span class="fc" id="L94">            String normalized = spel.strip();</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            if (normalized.startsWith(&quot;#result.&quot;)) {</span>
+<span class="fc" id="L96">                normalized = normalized.substring(&quot;#result.&quot;.length());</span>
             }
 
-            // Only allow property paths like &quot;id&quot; or &quot;user.id&quot;.
-<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            if (!normalized.matches(&quot;^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$&quot;)) {</span>
-<span class="nc" id="L107">                log.warn(&quot;Rejected non-property entityIdSpEL='{}'&quot;, spel);</span>
-<span class="nc" id="L108">                return null;</span>
+            // Only allow nested property paths like &quot;id&quot; or &quot;user.id&quot; (no SpEL, methods, etc.).
+            // Validate by segments — avoids java:S5998 (nested * quantifiers in one big regex).
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            if (!isAllowedBeanPropertyPath(normalized)) {</span>
+<span class="nc" id="L102">                log.warn(&quot;Rejected non-property entityIdSpEL='{}'&quot;, spel);</span>
+<span class="nc" id="L103">                return null;</span>
             }
 
-<span class="fc" id="L111">            Expression expr  = SPEL.parseExpression(normalized);</span>
-<span class="fc" id="L112">            StandardEvaluationContext ctx = new StandardEvaluationContext(result);</span>
-<span class="fc" id="L113">            Object value = expr.getValue(ctx);</span>
-<span class="pc bpc" id="L114" title="1 of 2 branches missed.">            return value != null ? value.toString() : null;</span>
-<span class="fc" id="L115">        } catch (Exception ex) {</span>
-<span class="fc" id="L116">            log.warn(&quot;Failed to evaluate entityIdSpEL='{}': {}&quot;, spel, ex.getMessage());</span>
-<span class="fc" id="L117">            return null;</span>
+<span class="fc" id="L106">            BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(result);</span>
+<span class="fc" id="L107">            Object value = wrapper.getPropertyValue(normalized);</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            return value != null ? value.toString() : null;</span>
+<span class="fc" id="L109">        } catch (Exception ex) {</span>
+<span class="fc" id="L110">            log.warn(&quot;Failed to evaluate entityIdSpEL='{}': {}&quot;, spel, ex.getMessage());</span>
+<span class="fc" id="L111">            return null;</span>
         }
+    }
+
+    /** JavaBean-style segment: {@code [A-Za-z_][A-Za-z0-9_]*}; path is dot-separated segments. */
+    private static boolean isAllowedBeanPropertyPath(String path) {
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (path.isEmpty()) {</span>
+<span class="nc" id="L118">            return false;</span>
+        }
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        for (String segment : path.split(&quot;\\.&quot;, -1)) {</span>
+<span class="pc bpc" id="L121" title="2 of 4 branches missed.">            if (segment.isEmpty() || !segment.matches(&quot;^[A-Za-z_][A-Za-z0-9_]*$&quot;)) {</span>
+<span class="nc" id="L122">                return false;</span>
+            }
+        }
+<span class="fc" id="L125">        return true;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

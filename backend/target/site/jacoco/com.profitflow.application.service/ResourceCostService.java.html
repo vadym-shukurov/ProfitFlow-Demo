@@ -99,7 +99,7 @@ public class ResourceCostService implements ResourceCostUseCase {
      */
     @Override
     @AuditedOperation(action = &quot;RESOURCE_COST_CREATED&quot;, entityType = &quot;ResourceCost&quot;,
-                      entityIdSpEL = &quot;id()&quot;, critical = true)
+                      entityIdSpEL = &quot;id&quot;, critical = true)
     @CacheEvict(value = CacheNames.RESOURCE_COSTS, allEntries = true)
     public ResourceCost createCost(String label, BigDecimal amount, String currencyCode) {
 <span class="fc bfc" id="L105" title="All 4 branches covered.">        if (label == null || label.isBlank()) {</span>
@@ -218,7 +218,7 @@ public class ResourceCostService implements ResourceCostUseCase {
      * interpret as formula entry points ({@code = + - @ \t \r}).
      *
      * &lt;p&gt;Without this defence, an attacker can craft a label like
-     * {@code =HYPERLINK(&quot;http://evil.com&quot;,&quot;Click me&quot;)} that becomes an active
+     * {@code =HYPERLINK(&quot;https://example.com&quot;,&quot;Click me&quot;)} that becomes an active
      * formula when the exported CSV is opened in a spreadsheet.
      */
     static String stripCsvInjectionChars(String value) {

@@ -16,6 +16,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Loads the RSA key pair used to sign and verify JWTs.
@@ -62,7 +63,7 @@ public class RsaKeyLoader {
     private final RsaKeyProperties classpathKeys;
 
     // Ephemeral dev fallback (generated once per JVM when no key material is configured)
-    private volatile KeyPair generatedDevKeyPair;
+    private final AtomicReference<KeyPair> generatedDevKeyPair = new AtomicReference<>();
 
     // Active profile — used to determine whether to block classpath keys
     private final String activeProfiles;
@@ -179,19 +180,21 @@ public class RsaKeyLoader {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private KeyPair devKeyPair() {
-        KeyPair current = generatedDevKeyPair;
+        KeyPair current = generatedDevKeyPair.get();
         if (current != null) {
             return current;
         }
         synchronized (this) {
-            if (generatedDevKeyPair != null) {
-                return generatedDevKeyPair;
+            KeyPair existing = generatedDevKeyPair.get();
+            if (existing != null) {
+                return existing;
             }
             try {
                 KeyPairGenerator g = KeyPairGenerator.getInstance("RSA");
                 g.initialize(2048);
-                generatedDevKeyPair = g.generateKeyPair();
-                return generatedDevKeyPair;
+                KeyPair pair = g.generateKeyPair();
+                generatedDevKeyPair.set(pair);
+                return pair;
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to generate ephemeral RSA keypair: " + e.getMessage(), e);
             }

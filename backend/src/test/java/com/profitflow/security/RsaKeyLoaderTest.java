@@ -117,4 +117,24 @@ class RsaKeyLoaderTest {
 
         assertThat(loader.previousVerificationPublicKey()).isEmpty();
     }
+
+    @Test
+    void ephemeralKeyPairReusedWhenClasspathHasPublicOnly() {
+        RsaKeyProperties full = generatedKeys();
+        RsaKeyProperties pubOnly = new RsaKeyProperties(full.rsaPublicKey(), null);
+        RsaKeyLoader loader = new RsaKeyLoader(pubOnly, "default", "k");
+        RSAPrivateKey a = loader.privateKey();
+        RSAPrivateKey b = loader.privateKey();
+        assertThat(a).isSameAs(b);
+    }
+
+    @Test
+    void publicKeyFromEphemeralDevPairMatchesAcrossCalls() {
+        RsaKeyProperties full = generatedKeys();
+        RsaKeyProperties pubOnly = new RsaKeyProperties(full.rsaPublicKey(), null);
+        RsaKeyLoader loader = new RsaKeyLoader(pubOnly, "default", "k");
+        RSAPublicKey p1 = loader.publicKey();
+        RSAPublicKey p2 = loader.publicKey();
+        assertThat(p1).isSameAs(p2);
+    }
 }

@@ -44,15 +44,15 @@ profitflow-api,com.profitflow.application.model,AllocationFlowDto,0,21,0,0,0,1,0
 profitflow-api,com.profitflow.security,CorrelationIdFilter,0,44,0,6,0,13,0,7,0,4
 profitflow-api,com.profitflow.security,RefreshTokenService.RotationResult,0,31,0,0,0,3,0,3,0,3
 profitflow-api,com.profitflow.security,AuditService,0,139,1,7,0,35,1,10,0,7
-profitflow-api,com.profitflow.security,RateLimitingFilter,7,189,15,35,1,36,14,18,0,7
-profitflow-api,com.profitflow.security,AuditAspect,12,115,4,14,3,31,4,9,0,4
+profitflow-api,com.profitflow.security,RateLimitingFilter,5,191,10,40,1,36,9,23,0,7
+profitflow-api,com.profitflow.security,AuditAspect,11,140,6,20,4,34,6,12,0,5
 profitflow-api,com.profitflow.security,AuditService.AuditWriteException,0,5,0,0,0,2,0,1,0,1
 profitflow-api,com.profitflow.security,TokenRevocationService,0,108,0,12,0,30,0,11,0,5
 profitflow-api,com.profitflow.security,JwtTokenService,2,62,0,0,0,21,1,2,1,2
 profitflow-api,com.profitflow.security,SecurityConfig,42,458,5,1,4,70,5,18,2,18
 profitflow-api,com.profitflow.security,AuthConfig,5,10,2,2,1,3,2,2,0,2
 profitflow-api,com.profitflow.security,AppUserDetailsService,7,40,1,1,0,12,2,2,1,2
-profitflow-api,com.profitflow.security,RsaKeyLoader,136,182,27,27,34,50,24,16,3,10
+profitflow-api,com.profitflow.security,RsaKeyLoader,135,195,27,27,34,53,24,16,3,10
 profitflow-api,com.profitflow.security,FallbackJwtDecoder,0,28,0,2,0,11,0,3,0,2
 profitflow-api,com.profitflow.security,SensitiveApiCacheHeaderFilter,0,25,1,3,0,7,1,3,0,2
 profitflow-api,com.profitflow.security,RefreshTokenService,31,184,4,6,9,46,4,12,1,10
@@ -110,7 +110,7 @@ profitflow-api,com.profitflow.adapter.in.web,ActivityController,0,21,0,0,0,7,0,3
 profitflow-api,com.profitflow.adapter.in.web,ApiExceptionHandler,26,201,4,8,4,54,4,18,0,16
 profitflow-api,com.profitflow.adapter.in.web,ProductController,0,21,0,0,0,7,0,3,0,3
 profitflow-api,com.profitflow.adapter.in.web,AllocationRunController,0,10,0,0,0,4,0,2,0,2
-profitflow-api,com.profitflow.adapter.in.web,WebConfig,41,42,8,2,7,10,5,4,0,4
+profitflow-api,com.profitflow.adapter.in.web,WebConfig,0,83,0,10,0,17,0,9,0,4
 profitflow-api,com.profitflow.adapter.in.web,AuthController.LogoutRequest,0,6,0,0,0,1,0,1,0,1
 profitflow-api,com.profitflow.adapter.in.web,WebConfig.new WebMvcConfigurer() {...},0,67,0,0,0,9,0,2,0,2
 profitflow-api,com.profitflow.adapter.in.web,AllocationRunQueryController,0,26,0,0,0,6,0,4,0,4

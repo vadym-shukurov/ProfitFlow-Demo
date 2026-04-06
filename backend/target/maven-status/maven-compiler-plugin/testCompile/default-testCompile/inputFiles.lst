@@ -10,6 +10,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/in/web/AuthControllerTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/in/web/ProductControllerTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/in/web/ResourceCostControllerTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/in/web/WebConfigTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/ai/MockAiAllocatorAdapterTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/ai/ResilientAiAllocatorDecoratorTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/adapter/out/persistence/AllocationRulePersistenceAdapterTest.java

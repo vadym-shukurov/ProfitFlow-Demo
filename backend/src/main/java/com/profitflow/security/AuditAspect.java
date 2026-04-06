@@ -97,7 +97,8 @@ public class AuditAspect {
             }
 
             // Only allow nested property paths like "id" or "user.id" (no SpEL, methods, etc.).
-            if (!normalized.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+            // Validate by segments — avoids java:S5998 (nested * quantifiers in one big regex).
+            if (!isAllowedBeanPropertyPath(normalized)) {
                 log.warn("Rejected non-property entityIdSpEL='{}'", spel);
                 return null;
             }
@@ -109,5 +110,18 @@ public class AuditAspect {
             log.warn("Failed to evaluate entityIdSpEL='{}': {}", spel, ex.getMessage());
             return null;
         }
+    }
+
+    /** JavaBean-style segment: {@code [A-Za-z_][A-Za-z0-9_]*}; path is dot-separated segments. */
+    private static boolean isAllowedBeanPropertyPath(String path) {
+        if (path.isEmpty()) {
+            return false;
+        }
+        for (String segment : path.split("\\.", -1)) {
+            if (segment.isEmpty() || !segment.matches("^[A-Za-z_][A-Za-z0-9_]*$")) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -47,7 +47,7 @@ public class ActivityCatalogService implements ActivityCatalogUseCase {
      */
     @Override
     @AuditedOperation(action = &quot;ACTIVITY_CREATED&quot;, entityType = &quot;Activity&quot;,
-                      entityIdSpEL = &quot;#result.id()&quot;)
+                      entityIdSpEL = &quot;#result.id&quot;)
     @CacheEvict(value = CacheNames.ACTIVITIES, allEntries = true)
     public Activity createActivity(String name) {
 <span class="fc bfc" id="L53" title="All 4 branches covered.">        if (name == null || name.isBlank()) {</span>
