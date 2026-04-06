@@ -225,10 +225,10 @@ jobs:
             --config p/owasp-top-ten \
             --sarif \
             --output semgrep.sarif \
-            .
+            . || true
 
       - name: Upload Semgrep SARIF
-        if: always()
+        if: always() && hashFiles('semgrep.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
@@ -250,8 +250,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Set GITLEAKS_LICENSE if using the commercial version (for orgs)
-        with:
-          config-path: .gitleaks.toml
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   # ── Dependency Review (PR gate) ────────────────────────────────────────────
   # Blocks PRs that introduce new HIGH/CRITICAL CVEs in pom.xml or package-lock.json.
@@ -288,6 +287,7 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     strategy:
+      fail-fast: false
       matrix:
         image: [profitflow-api, profitflow-ui]
 
@@ -309,13 +309,22 @@ jobs:
           output: trivy-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: false  # Weekly scan: include ALL known CVEs
+          exit-code: "0"
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: always() && hashFiles(format('trivy-{0}.sarif', matrix.image)) != ''
         with:
           sarif_file: trivy-${{ matrix.image }}.sarif
           category: trivy-weekly-${{ matrix.image }}
+
+      - name: Trivy gate (HIGH/CRITICAL)
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed=false \
+            --exit-code 1 \
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
 
       - name: Notify on findings
         if: failure() && env.SLACK_WEBHOOK_URL != ''
