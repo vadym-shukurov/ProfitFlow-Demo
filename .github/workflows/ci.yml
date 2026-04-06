@@ -271,7 +271,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend-test]
     permissions:
-      security-events: write  # Required to upload SARIF to GitHub Security tab
+      contents: read # setup-trivy checks out aquasecurity/trivy; without this the token cannot read that repo
+      security-events: write # upload-sarif → Code scanning tab
 
     steps:
       - uses: actions/checkout@v5
