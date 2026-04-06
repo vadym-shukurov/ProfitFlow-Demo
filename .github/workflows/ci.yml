@@ -286,7 +286,7 @@ jobs:
 
       - name: Trivy filesystem scan (SARIF)
         id: trivy-fs-sarif
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: ${{ github.workspace }}
@@ -315,7 +315,7 @@ jobs:
       - name: Trivy filesystem scan (gate)
         id: trivy-fs-gate
         continue-on-error: true
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: ${{ github.workspace }}
@@ -486,7 +486,7 @@ jobs:
       # Scan built images for OS/library CVEs (Trivy).
       - name: Trivy image scan — backend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: profitflow-api:ci
@@ -499,7 +499,7 @@ jobs:
 
       - name: Trivy image scan gate — backend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: profitflow-api:ci
@@ -511,7 +511,7 @@ jobs:
 
       - name: Trivy image scan — backend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
@@ -524,7 +524,7 @@ jobs:
 
       - name: Trivy image scan gate — backend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
@@ -536,7 +536,7 @@ jobs:
 
       - name: Trivy image scan — frontend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: profitflow-ui:ci
@@ -549,7 +549,7 @@ jobs:
 
       - name: Trivy image scan gate — frontend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: profitflow-ui:ci
@@ -561,7 +561,7 @@ jobs:
 
       - name: Trivy image scan — frontend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
@@ -574,7 +574,7 @@ jobs:
 
       - name: Trivy image scan gate — frontend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
