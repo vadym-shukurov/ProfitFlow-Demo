@@ -348,7 +348,7 @@ jobs:
 
       # Enable BuildKit for multi-stage build caching
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build the backend image (with layer cache from GitHub Actions cache)
       - name: Build backend image
