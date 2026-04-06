@@ -120,7 +120,7 @@ jobs:
       # Generate a changelog from conventional commit messages since the last tag
       - name: Generate changelog
         id: changelog
-        uses: orhun/git-cliff-action@v3
+        uses: orhun/git-cliff-action@v4
         with:
           config: .github/cliff.toml
           args: --verbose --latest --strip all
