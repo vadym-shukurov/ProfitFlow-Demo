@@ -7,8 +7,11 @@
 **/*.md
 docs/**
 
-# Maven / build output — JaCoCo HTML embeds http:// in DOCTYPE / xmlns (not app vulnerabilities).
-**/target/
+# Generated reports & build output — JaCoCo HTML, class files, etc. (not application source).
+**/jacoco/**
+**/target/**
+**/build/**
+
 **/dist/
 **/node_modules/
 

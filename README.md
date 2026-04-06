@@ -13,7 +13,7 @@ It runs a two-stage Activity‑Based Costing (ABC) allocation and visualizes the
 4. [Core allocation algorithm](#how-the-core-allocation-algorithm-works)
 5. [Architecture](#architecture-engineering-view)
 6. [Configuration](#configuration-env-vars--ports)
-7. [Testing](#testing)
+7. [Testing](#testing) (includes [SonarCloud / SonarQube](#quality-analysis-sonarcloud-or-sonarqube))
 8. [API](#api-high-level)
 9. [Repo layout](#repo-layout)
 10. [Roadmap](#roadmap-product-minded)
@@ -285,6 +285,31 @@ What `./scripts/ci-with-servers.sh` does:
 - Runs Playwright UI + API tests
 - Runs LHCI (unless auto-skipped locally) and Artillery probe
 - Writes API/UI logs to temp files **only on failure**
+
+### Quality analysis (SonarCloud or SonarQube)
+
+The workflow [`.github/workflows/sonarcloud.yml`](.github/workflows/sonarcloud.yml) runs **after** backend `mvn verify` (JaCoCo XML) and frontend `ng test` (LCOV), then uploads analysis using `sonar-project.properties`.
+
+**Option A — SonarCloud (hosted)**
+
+1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and **import this repository** (or create a project and note the **organization key** and **project key**).
+2. In SonarCloud: **My Account → Security** → generate a token.
+3. In GitHub: **Settings → Secrets and variables → Actions**, add:
+   - `SONAR_TOKEN` — the token from step 2  
+   - `SONAR_ORGANIZATION` — organization key from SonarCloud  
+   - `SONAR_PROJECT_KEY` — project key (shown on the project homepage)  
+   - Do **not** set `SONAR_HOST_URL` (empty/absent selects SonarCloud).
+
+**Option B — Self-hosted SonarQube**
+
+1. Create a project on your server and a user token with permission to **run analyses**.
+2. Add GitHub secrets:
+   - `SONAR_TOKEN`  
+   - `SONAR_PROJECT_KEY` — must match the project key on the server  
+   - `SONAR_HOST_URL` — public base URL of the server (for example `https://sonar.example.com`), reachable from **GitHub-hosted** runners unless you use self-hosted runners  
+3. Leave **`SONAR_ORGANIZATION` unset** when `SONAR_HOST_URL` is set (the workflow uses SonarQube mode).
+
+Push to `main` / `open a PR` (within the path filters in the workflow) or run the workflow manually (**Actions → SonarCloud → Run workflow**).
 
 ---
 

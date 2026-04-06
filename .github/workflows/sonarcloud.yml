@@ -1,6 +1,13 @@
-# SonarCloud — duplication %, coverage on new code, security hotspots, PR decoration.
-# Requires repository secrets: SONAR_TOKEN, SONAR_ORGANIZATION, SONAR_PROJECT_KEY
-# (see README → CI/CD → SonarCloud setup).
+# SonarCloud or self-hosted SonarQube — coverage, duplication, security hotspots, PR decoration (SonarCloud).
+#
+# Secrets (repository → Settings → Secrets and variables → Actions):
+#   Required (both modes):
+#     SONAR_TOKEN          — user token from SonarCloud or SonarQube (with “Execute analysis” permission)
+#     SONAR_PROJECT_KEY    — project key (e.g. myorg_profitflow on SonarCloud, or key you created on the server)
+#   SonarCloud only (do not set SONAR_HOST_URL):
+#     SONAR_ORGANIZATION   — SonarCloud organization key (Account → My Organizations → Key)
+#   Self-hosted SonarQube only:
+#     SONAR_HOST_URL       — base URL, e.g. https://sonar.company.com (must be reachable from GitHub-hosted runners)
 
 name: SonarCloud
 
@@ -27,7 +34,7 @@ concurrency:
 
 jobs:
   sonarcloud:
-    name: SonarCloud analysis
+    name: Sonar analysis
     runs-on: ubuntu-latest
     # Fork PRs: no access to repository secrets — skip (same pattern as codecov-style tools).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -40,17 +47,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check SonarCloud secrets
+      - name: Resolve Sonar configuration
         id: cfg
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
+          if [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::SONAR_TOKEN is not set — skipping SonarCloud. Add SONAR_TOKEN, SONAR_ORGANIZATION, and SONAR_PROJECT_KEY in repository secrets (see README)."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Set SONAR_TOKEN and SONAR_PROJECT_KEY to enable Sonar. See README → Testing → Quality analysis (Sonar)."
+            exit 0
           fi
+          if [ -n "$SONAR_HOST_URL" ]; then
+            echo "mode=sq" >> "$GITHUB_OUTPUT"
+          else
+            if [ -z "$SONAR_ORGANIZATION" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::SonarCloud requires SONAR_ORGANIZATION, or set SONAR_HOST_URL for self-hosted SonarQube."
+              exit 0
+            fi
+            echo "mode=cloud" >> "$GITHUB_OUTPUT"
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 21
         if: steps.cfg.outputs.skip == 'false'
@@ -81,20 +101,9 @@ jobs:
           npm ci --prefer-online
           npx ng test --watch=false --browsers=ChromeHeadless --code-coverage --no-progress
 
-      - name: Validate SonarCloud project secrets
-        if: steps.cfg.outputs.skip == 'false'
-        env:
-          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-        run: |
-          if [ -z "$SONAR_ORGANIZATION" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
-            echo "::error::Set SONAR_ORGANIZATION and SONAR_PROJECT_KEY (with SONAR_TOKEN) in repository Actions secrets."
-            exit 1
-          fi
-
-      - name: SonarCloud Scan
-        if: steps.cfg.outputs.skip == 'false'
-        # Pinned to v7.1.0 commit (not floating v5/v6) — fixes GHSA-f79p-9c5r-xg88 / GHSA-5xq9-5g24-4g6f; v6+ uses JS arg parser (see action README).
+      - name: SonarCloud analysis
+        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'cloud'
+        # Pinned commit — see action release notes for supply-chain updates.
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -103,6 +112,16 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
 
-      - name: SonarCloud skipped
+      - name: SonarQube analysis (self-hosted)
+        if: steps.cfg.outputs.skip == 'false' && steps.cfg.outputs.mode == 'sq'
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+
+      - name: Sonar skipped
         if: steps.cfg.outputs.skip == 'true'
-        run: echo "SonarCloud analysis skipped (configure secrets to enable)."
+        run: echo "Sonar analysis skipped (configure secrets to enable)."
