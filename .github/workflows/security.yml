@@ -32,9 +32,6 @@ on:
       - "frontend/Dockerfile"
   pull_request:
     branches: [main]
-    paths:
-      - "backend/pom.xml"
-      - "frontend/package-lock.json"
   workflow_dispatch:
 
 permissions:
