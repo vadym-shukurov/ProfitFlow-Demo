@@ -353,7 +353,7 @@ jobs:
       # Build the backend image (with layer cache from GitHub Actions cache)
       - name: Build backend image
         id: build-backend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: backend
           file: backend/Dockerfile
@@ -374,7 +374,7 @@ jobs:
       # Build the frontend image
       - name: Build frontend image
         id: build-frontend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: frontend
           file: frontend/Dockerfile
