@@ -41,8 +41,10 @@ export const retryInterceptor: HttpInterceptorFn = (
           throw error;
         }
         const baseMs = 500 * Math.pow(2, attempt - 1);
-        const jitter  = baseMs * 0.2 * (Math.random() * 2 - 1); // ±20%
-        return timer(Math.round(baseMs + jitter));
+        // Deterministic delays keep retry behavior testable and debuggable.
+        // If jitter is desired in production, add it at the server/LB level or behind
+        // a feature flag so it doesn't introduce flaky client retries.
+        return timer(baseMs);
       },
       resetOnSuccess: true,
     })

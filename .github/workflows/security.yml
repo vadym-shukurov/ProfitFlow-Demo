@@ -72,7 +72,9 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          mvn verify -Powasp-check -DskipTests -B -q || {
+          # This job is a dependency audit; tests are skipped, so JaCoCo coverage gates
+          # (bound to verify) would fail due to missing execution data. Skip JaCoCo here.
+          mvn verify -Powasp-check -DskipTests -Djacoco.skip=true -B -q || {
             echo "OWASP check found HIGH/CRITICAL vulnerabilities!"
             echo "Review the report in the artifacts section."
             exit 1
@@ -89,13 +91,14 @@ jobs:
       # Convert OWASP XML report to SARIF for GitHub Security tab
       - name: Convert OWASP report to SARIF
         if: always()
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: ProfitFlow-Demo
-          path: backend
-          format: SARIF
-          out: .
-          args: >
+        run: |
+          docker run --rm \
+            -v "${PWD}:/src" \
+            -w /src \
+            owasp/dependency-check:latest \
+            --scan /src/backend \
+            --format SARIF \
+            --out /src \
             --noupdate
 
       - name: Upload OWASP SARIF
