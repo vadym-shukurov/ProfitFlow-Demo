@@ -19,13 +19,12 @@
 #            │
 #   ┌────────▼─────────┐
 #   │  security-scan   │
-#   │  (trivy fs +     │
-#   │   dep review)    │
+#   │  (Grype repo fs) │
 #   └────────┬─────────┘
 #            │
 #   ┌────────▼─────────┐
 #   │  docker-build    │
-#   │  (build + trivy  │
+#   │  (build + Grype  │
 #   │   image scan +   │
 #   │   push to GHCR)  │
 #   └──────────────────┘
@@ -277,78 +276,60 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Trivy scans the repository filesystem for secrets, misconfigurations,
-      # and known vulnerable dependency versions.
-      - name: Trivy filesystem scan (SARIF)
-        id: trivy-fs-sarif
+      # Grype (via anchore/scan-action) scans the repo filesystem for known vulnerable
+      # dependency versions (Syft catalog + Grype matcher).
+      - name: Prepare workspace for repo scan
         run: |
           # Defensive cleanup: if a contributor accidentally commits generated E2E reports,
           # remove them before scanning to avoid noisy/un-actionable findings.
           rm -rf e2e/playwright-report e2e/test-results || true
-          docker run --rm \
-            -v "${PWD}:/work" \
-            -w /work \
-            aquasec/trivy:0.57.1 \
-            fs \
-            --scanners vuln \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
-            --format sarif \
-            --output trivy-fs.sarif \
-            --exit-code 0 \
-            --skip-dirs backend/target \
-            --skip-dirs frontend/node_modules \
-            --skip-dirs frontend/dist \
-            --skip-dirs frontend/coverage \
-            --skip-dirs e2e/node_modules \
-            --skip-dirs e2e/playwright-report \
-            .
+
+      - name: Grype filesystem scan (SARIF)
+        id: grype-fs-sarif
+        uses: anchore/scan-action@v7
+        with:
+          path: "."
+          fail-build: false
+          severity-cutoff: high
+          only-fixed: true
+          output-format: sarif
+          output-file: grype-fs.sarif
+          cache-db: true
 
       - name: Assert SARIF exists
         if: always()
         run: |
           ls -la
-          test -f trivy-fs.sarif
+          test -f grype-fs.sarif
 
       # Upload SARIF to GitHub Security → Code scanning tab
-      - name: Upload Trivy SARIF
+      - name: Upload Grype SARIF
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: trivy-fs.sarif
-          category: trivy-fs
+          sarif_file: grype-fs.sarif
+          category: grype-fs
 
-      - name: Trivy filesystem scan (gate)
-        id: trivy-fs-gate
+      - name: Grype filesystem scan (gate)
+        id: grype-fs-gate
         continue-on-error: true
-        run: |
-          rm -rf e2e/playwright-report e2e/test-results || true
-          docker run --rm \
-            -v "${PWD}:/work" \
-            -w /work \
-            aquasec/trivy:0.57.1 \
-            fs \
-            --scanners vuln \
-            # Gate on CRITICAL only to avoid forcing major Angular upgrades.
-            --severity CRITICAL \
-            --ignore-unfixed \
-            --format table \
-            --output trivy-fs-gate.txt \
-            --exit-code 1 \
-            --skip-dirs backend/target \
-            --skip-dirs frontend/node_modules \
-            --skip-dirs frontend/dist \
-            --skip-dirs frontend/coverage \
-            --skip-dirs e2e/node_modules \
-            --skip-dirs e2e/playwright-report \
-            .
+        uses: anchore/scan-action@v7
+        with:
+          path: "."
+          fail-build: true
+          # Gate on CRITICAL only to avoid forcing major Angular upgrades.
+          severity-cutoff: critical
+          only-fixed: true
+          output-format: table
+          output-file: grype-fs-gate.txt
+          cache-db: true
 
-      - name: Upload Trivy gate output
+      - name: Upload Grype gate output
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: trivy-fs-gate
-          path: trivy-fs-gate.txt
+          name: grype-fs-gate
+          path: grype-fs-gate.txt
           retention-days: 14
 
       - name: Fail build on HIGH/CRITICAL findings
@@ -415,110 +396,134 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Build the backend image (with layer cache from GitHub Actions cache)
-      - name: Build backend image
-        id: build-backend
+      # Build backend image (PR/local) — tag only locally to avoid pushing to Docker Hub
+      - name: Build backend image (PR/local)
+        if: github.event_name == 'pull_request'
+        id: build-backend-pr
         uses: docker/build-push-action@v6
         with:
           context: backend
           file: backend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          # Always tag a local image for scanners on PRs (no registry push).
-          tags: |
-            ${{ steps.meta-backend.outputs.tags }}
-            profitflow-api:ci
+          push: false
+          tags: profitflow-api:ci
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha,scope=backend
           cache-to:   type=gha,scope=backend,mode=max
-          # Build provenance attestation for supply chain security (SLSA)
           provenance: true
           sbom: true
-          # Ensure the image is available locally for scanning on PRs.
-          load: ${{ github.event_name == 'pull_request' }}
+          load: true
 
-      # Build the frontend image
-      - name: Build frontend image
-        id: build-frontend
+      # Build backend image (push/GHCR) — push only fully-qualified GHCR tags
+      - name: Build backend image (push/GHCR)
+        if: github.event_name != 'pull_request'
+        id: build-backend-push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to:   type=gha,scope=backend,mode=max
+          provenance: true
+          sbom: true
+
+      # Build frontend image (PR/local) — tag only locally to avoid pushing to Docker Hub
+      - name: Build frontend image (PR/local)
+        if: github.event_name == 'pull_request'
+        id: build-frontend-pr
         uses: docker/build-push-action@v6
         with:
           context: frontend
           file: frontend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ steps.meta-frontend.outputs.tags }}
-            profitflow-ui:ci
+          push: false
+          tags: profitflow-ui:ci
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to:   type=gha,scope=frontend,mode=max
           provenance: true
           sbom: true
-          load: ${{ github.event_name == 'pull_request' }}
+          load: true
 
-      # Scan the built images for OS-level CVEs before pushing
-      - name: Trivy image scan — backend (PR/local)
-        if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.35.0
-        with:
-          scan-type: image
-          image-ref: profitflow-api:ci
-          format: sarif
-          output: trivy-image-backend.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-
-      - name: Trivy image scan — backend (push/GHCR)
+      # Build frontend image (push/GHCR) — push only fully-qualified GHCR tags
+      - name: Build frontend image (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.35.0
+        id: build-frontend-push
+        uses: docker/build-push-action@v6
         with:
-          scan-type: image
-          # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
-          # (which tags with a short SHA by default).
-          image-ref: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
-          format: sarif
-          output: trivy-image-backend.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to:   type=gha,scope=frontend,mode=max
+          provenance: true
+          sbom: true
 
-      - name: Trivy image scan — frontend (PR/local)
+      # Scan the built images for OS-level CVEs before pushing (Grype via anchore/scan-action).
+      - name: Grype image scan — backend (PR/local)
         if: github.event_name == 'pull_request'
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: anchore/scan-action@v7
         with:
-          scan-type: image
-          image-ref: profitflow-ui:ci
-          format: sarif
-          output: trivy-image-frontend.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+          image: profitflow-api:ci
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: true
+          output-format: sarif
+          output-file: grype-image-backend.sarif
+          cache-db: true
 
-      - name: Trivy image scan — frontend (push/GHCR)
+      - name: Grype image scan — backend (push/GHCR)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: anchore/scan-action@v7
         with:
-          scan-type: image
-          # Keep this in sync with docker/metadata-action `type=sha,prefix=sha-`
-          image-ref: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
-          format: sarif
-          output: trivy-image-frontend.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+          image: ${{ env.IMAGE_BACKEND }}:${{ steps.meta-backend.outputs.version }}
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: true
+          output-format: sarif
+          output-file: grype-image-backend.sarif
+          cache-db: true
 
-      - name: Upload image scan results
+      - name: Grype image scan — frontend (PR/local)
+        if: github.event_name == 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: profitflow-ui:ci
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: true
+          output-format: sarif
+          output-file: grype-image-frontend.sarif
+          cache-db: true
+
+      - name: Grype image scan — frontend (push/GHCR)
+        if: github.event_name != 'pull_request'
+        uses: anchore/scan-action@v7
+        with:
+          image: ${{ env.IMAGE_FRONTEND }}:${{ steps.meta-frontend.outputs.version }}
+          severity-cutoff: high
+          fail-build: true
+          only-fixed: true
+          output-format: sarif
+          output-file: grype-image-frontend.sarif
+          cache-db: true
+
+      - name: Upload image scan results (backend)
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy-image-backend.sarif') != ''
+        if: always() && hashFiles('grype-image-backend.sarif') != ''
         with:
-          sarif_file: trivy-image-backend.sarif
-          category: trivy-image-backend
+          sarif_file: grype-image-backend.sarif
+          category: grype-image-backend
 
       - name: Upload image scan results (frontend)
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy-image-frontend.sarif') != ''
+        if: always() && hashFiles('grype-image-frontend.sarif') != ''
         with:
-          sarif_file: trivy-image-frontend.sarif
-          category: trivy-image-frontend
+          sarif_file: grype-image-frontend.sarif
+          category: grype-image-frontend
 
   # ── Job 6: OpenAPI → TypeScript contract drift gate ───────────────────────────
   openapi-typescript-check:

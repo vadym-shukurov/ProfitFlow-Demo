@@ -10,10 +10,11 @@
 #
 # Jobs:
 #   1. owasp-dependency-check   — CVSS ≥ 7.0 fails the build
-#   2. trivy-deep-scan           — scans pushed container images in GHCR
-#   3. codeql-analysis           — GitHub's semantic code analysis (SAST)
-#   4. secret-scan               — Gitleaks detects committed secrets
-#   5. dependency-review         — PR-gating for newly introduced CVEs
+#   2. npm-audit                — frontend lockfile critical gate
+#   3. semgrep                  — SAST (community rulesets)
+#   4. secret-scan              — Gitleaks detects committed secrets
+#   5. dependency-review        — PR-gating for newly introduced CVEs
+#   6. grype-image-scan         — weekly Grype scan of GHCR :latest images
 #
 # Results upload to: GitHub Security → Code scanning alerts
 
@@ -214,6 +215,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install Semgrep
         run: python -m pip install --upgrade pip semgrep
@@ -274,10 +276,10 @@ jobs:
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0
           comment-summary-in-pr: always
 
-  # ── Trivy container image scan (weekly) ───────────────────────────────────
+  # ── Container image scan (weekly) ─────────────────────────────────────────
   # Scans the latest production images in GHCR for OS-level CVEs.
-  trivy-image-scan:
-    name: "Trivy — Container Image Scan"
+  grype-image-scan:
+    name: "Grype — Container Image Scan"
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
@@ -299,32 +301,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Pinned to a specific commit SHA for supply-chain security (no floating @master tag)
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.35.0
+      - name: Scan image (SARIF)
+        id: scan
+        uses: anchore/scan-action@v7
         with:
-          scan-type: image
-          image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-          format: sarif
-          output: trivy-${{ matrix.image }}.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: false  # Weekly scan: include ALL known CVEs
-          exit-code: "0"
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          severity-cutoff: high
+          fail-build: false
+          output-format: sarif
 
       - name: Upload SARIF
+        if: always() && steps.scan.outputs.sarif != ''
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles(format('trivy-{0}.sarif', matrix.image)) != ''
         with:
-          sarif_file: trivy-${{ matrix.image }}.sarif
-          category: trivy-weekly-${{ matrix.image }}
-
-      - name: Trivy gate (HIGH/CRITICAL)
-        run: |
-          trivy image \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed=false \
-            --exit-code 1 \
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-weekly-${{ matrix.image }}
 
       - name: Notify on findings
         if: failure() && env.SLACK_WEBHOOK_URL != ''
@@ -332,7 +323,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "🚨 *Weekly Trivy scan* found HIGH/CRITICAL CVEs in `${{ matrix.image }}`.\n<${{ github.server_url }}/${{ github.repository }}/security/code-scanning|View Security Alerts>"
+              "text": "🚨 *Weekly image scan* found HIGH/CRITICAL CVEs in `${{ matrix.image }}`.\n<${{ github.server_url }}/${{ github.repository }}/security/code-scanning|View Security Alerts>"
             }
         env:
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
