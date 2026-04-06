@@ -1,4 +1,4 @@
-# ProfitFlow — Executive-ready Activity‑Based Costing
+# ProfitFlow - Executive-ready Activity‑Based Costing
 
 ProfitFlow turns **general ledger spend** into a **decision‑grade view of unit economics**.  
 It runs a two-stage Activity‑Based Costing (ABC) allocation and visualizes the complete cost chain as a **Sankey graph**:
