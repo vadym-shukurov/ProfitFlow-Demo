@@ -114,6 +114,10 @@ jobs:
   backend-test:
     name: "Backend — Tests & Coverage"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     defaults:
       run:
         working-directory: backend
@@ -135,11 +139,16 @@ jobs:
       # Publish test results as a PR check summary (visible in the PR UI)
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
+        # Fork PRs have a read-only GITHUB_TOKEN → skip check creation to avoid 403.
+        if: >
+          always() && (
+            github.event_name != 'pull_request' ||
+            github.event.pull_request.head.repo.full_name == github.repository
+          )
         with:
           files: |
-            backend/target/surefire-reports/*.xml
-            backend/target/failsafe-reports/*.xml
+            backend/target/surefire-reports/TEST-*.xml
+            backend/target/failsafe-reports/TEST-*.xml
           check_name: "Backend Tests"
 
       # Upload JaCoCo HTML report for manual review
