@@ -24,6 +24,10 @@ FROM eclipse-temurin:21-jre-noble AS runtime
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && pkgs=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -E '^libpng' || true) \
+    && if [ -n "$pkgs" ]; then \
+         DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade $pkgs; \
+       fi \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 65532 nonroot \
     && useradd --uid 65532 --gid 65532 --shell /usr/sbin/nologin --create-home nonroot
