@@ -154,6 +154,13 @@ jobs:
         run: |
           flyctl deploy -c fly.staging.toml --local-only --yes
 
+      - name: Fly logs (UI) on failure
+        if: ${{ failure() }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl logs -a profitflow-ui-staging --since 10m || true
+
   # ── Smoke tests (staging) ──────────────────────────────────────────────────
   smoke-tests:
     name: "Smoke Tests — Staging"
