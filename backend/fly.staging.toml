@@ -6,6 +6,9 @@ primary_region = "ams"
 
 [env]
   SERVER_PORT = "8080"
+  # Fly proxy reaches the app over the machine's private network interface.
+  # Binding to 127.0.0.1 makes it unreachable from fly-proxy health checks.
+  SERVER_ADDRESS = "0.0.0.0"
   # Do NOT set SPRING_PROFILES_ACTIVE=prod in staging; prod profile enforces stricter secret requirements.
   # Default profile + env-injected DB settings are sufficient for staging/demo.
 
