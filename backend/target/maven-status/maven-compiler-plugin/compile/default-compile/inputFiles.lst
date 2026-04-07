@@ -138,6 +138,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/ClientIpResolver.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/ClientIpResolverPort.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CorrelationIdFilter.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CsrfTokenResponseHeaderFilter.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/FallbackJwtDecoder.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/JwtTokenService.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RateLimitingFilter.java

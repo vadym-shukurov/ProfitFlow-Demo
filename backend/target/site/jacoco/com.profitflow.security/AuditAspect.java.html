@@ -98,9 +98,9 @@ public class AuditAspect {
 
             // Only allow nested property paths like &quot;id&quot; or &quot;user.id&quot; (no SpEL, methods, etc.).
             // Validate by segments — avoids java:S5998 (nested * quantifiers in one big regex).
-<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            if (!isAllowedBeanPropertyPath(normalized)) {</span>
-<span class="nc" id="L102">                log.warn(&quot;Rejected non-property entityIdSpEL='{}'&quot;, spel);</span>
-<span class="nc" id="L103">                return null;</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">            if (!isAllowedBeanPropertyPath(normalized)) {</span>
+<span class="fc" id="L102">                log.warn(&quot;Rejected non-property entityIdSpEL='{}'&quot;, spel);</span>
+<span class="fc" id="L103">                return null;</span>
             }
 
 <span class="fc" id="L106">            BeanWrapper wrapper = PropertyAccessorFactory.forBeanPropertyAccess(result);</span>
@@ -114,12 +114,12 @@ public class AuditAspect {
 
     /** JavaBean-style segment: {@code [A-Za-z_][A-Za-z0-9_]*}; path is dot-separated segments. */
     private static boolean isAllowedBeanPropertyPath(String path) {
-<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (path.isEmpty()) {</span>
-<span class="nc" id="L118">            return false;</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if (path.isEmpty()) {</span>
+<span class="fc" id="L118">            return false;</span>
         }
 <span class="fc bfc" id="L120" title="All 2 branches covered.">        for (String segment : path.split(&quot;\\.&quot;, -1)) {</span>
-<span class="pc bpc" id="L121" title="2 of 4 branches missed.">            if (segment.isEmpty() || !segment.matches(&quot;^[A-Za-z_][A-Za-z0-9_]*$&quot;)) {</span>
-<span class="nc" id="L122">                return false;</span>
+<span class="pc bpc" id="L121" title="1 of 4 branches missed.">            if (segment.isEmpty() || !segment.matches(&quot;^[A-Za-z_][A-Za-z0-9_]*$&quot;)) {</span>
+<span class="fc" id="L122">                return false;</span>
             }
         }
 <span class="fc" id="L125">        return true;</span>

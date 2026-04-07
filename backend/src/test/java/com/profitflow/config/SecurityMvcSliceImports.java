@@ -1,6 +1,7 @@
 package com.profitflow.config;
 
 import com.profitflow.security.ClientIpResolver;
+import com.profitflow.security.CsrfTokenResponseHeaderFilter;
 import com.profitflow.security.CorrelationIdFilter;
 import com.profitflow.security.RateLimitingFilter;
 import com.profitflow.security.RsaKeyLoader;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Import;
 @EnableConfigurationProperties(RsaKeyProperties.class)
 @Import({
         ClientIpResolver.class,
+        CsrfTokenResponseHeaderFilter.class,
         CorrelationIdFilter.class,
         InMemoryRateLimiterBackend.class,
         RateLimitingFilter.class,

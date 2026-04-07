@@ -14,6 +14,15 @@ PROXY_JSON="$TMP/pf-e2e-proxy.json"
 API_PORT="${API_PORT:-18080}"
 API_BASE="http://127.0.0.1:${API_PORT}"
 
+# Spring binds empty env vars as "" and does not apply ${VAR:default} in YAML — demo seed is
+# skipped and login returns 401. Normalize before starting the JVM so E2E and backend agree.
+export E2E_ADMIN_USER="${E2E_ADMIN_USER:-admin}"
+export E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-Admin1234!}"
+export E2E_ANALYST_PASSWORD="${E2E_ANALYST_PASSWORD:-Analyst123!}"
+export PROFITFLOW_DEMO_ADMIN_PASSWORD="${PROFITFLOW_DEMO_ADMIN_PASSWORD:-${E2E_ADMIN_PASSWORD}}"
+export PROFITFLOW_DEMO_MANAGER_PASSWORD="${PROFITFLOW_DEMO_MANAGER_PASSWORD:-Manager123!}"
+export PROFITFLOW_DEMO_ANALYST_PASSWORD="${PROFITFLOW_DEMO_ANALYST_PASSWORD:-${E2E_ANALYST_PASSWORD}}"
+
 JAR="$(ls -t "$ROOT"/backend/target/profitflow-api-*.jar 2>/dev/null | head -1 || true)"
 if [[ -z "$JAR" ]]; then
   echo "Missing backend JAR. Run: (cd backend && mvn -Pe2e -DskipTests package)" >&2
@@ -23,6 +32,11 @@ fi
 cat >"$PROXY_JSON" <<EOF
 {
   "/api": {
+    "target": "${API_BASE}",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/actuator": {
     "target": "${API_BASE}",
     "secure": false,
     "changeOrigin": true
@@ -71,7 +85,7 @@ for _ in $(seq 1 60); do
       -b "$API_COOKIE_JAR" -c "$API_COOKIE_JAR" \
       -H "Content-Type: application/json" \
       -H "X-XSRF-TOKEN: ${CSRF_TOKEN}" \
-      -d '{"username":"admin","password":"Admin1234!"}' >/dev/null; then
+      -d "{\"username\":\"admin\",\"password\":\"${E2E_ADMIN_PASSWORD}\"}" >/dev/null; then
     break
   fi
   if ! kill -0 "$API_PID" 2>/dev/null; then
@@ -95,7 +109,9 @@ for _ in $(seq 1 120); do
 done
 
 export PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:4200}"
-export PLAYWRIGHT_API_BASE_URL="${PLAYWRIGHT_API_BASE_URL:-${API_BASE}}"
+# Never inherit PLAYWRIGHT_API_BASE_URL (e.g. :8080): probes must hit the JVM this script started.
+export PLAYWRIGHT_API_BASE_URL="${API_BASE}"
+# E2E_* / PROFITFLOW_* already normalized above for the API process; Playwright inherits them here.
 export CI="${CI:-true}"
 
 cd "$ROOT/e2e"

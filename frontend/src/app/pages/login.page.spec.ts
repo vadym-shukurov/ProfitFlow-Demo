@@ -4,6 +4,13 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { LoginPage } from './login.page';
+import { XsrfTokenStore } from '../core/http/xsrf-token.store';
+
+function flushCsrfPriming(httpMock: HttpTestingController): void {
+  const r = httpMock.expectOne('/actuator/health');
+  expect(r.request.method).toBe('GET');
+  r.flush(null, { headers: { 'X-XSRF-TOKEN': 'xsrf-test' } });
+}
 
 describe('LoginPage', () => {
   describe('default route', () => {
@@ -22,6 +29,7 @@ describe('LoginPage', () => {
       fixture = TestBed.createComponent(LoginPage);
       httpMock = TestBed.inject(HttpTestingController);
       router = TestBed.inject(Router);
+      TestBed.inject(XsrfTokenStore).clear();
       spyOn(router, 'navigateByUrl');
     });
 
@@ -41,6 +49,7 @@ describe('LoginPage', () => {
       cmp.password.set('Admin1234!');
       cmp.submit();
 
+      flushCsrfPriming(httpMock);
       httpMock.expectOne('/api/v1/auth/login').flush({
         accessToken: 'a',
         refreshToken: 'r',
@@ -59,6 +68,7 @@ describe('LoginPage', () => {
       cmp.password.set('bad');
       cmp.submit();
 
+      flushCsrfPriming(httpMock);
       httpMock.expectOne('/api/v1/auth/login').flush(
         {},
         { status: 401, statusText: 'Unauthorized' },
@@ -88,6 +98,7 @@ describe('LoginPage', () => {
       fixture = TestBed.createComponent(LoginPage);
       httpMock = TestBed.inject(HttpTestingController);
       router = TestBed.inject(Router);
+      TestBed.inject(XsrfTokenStore).clear();
       spyOn(router, 'navigateByUrl');
     });
 
@@ -99,6 +110,7 @@ describe('LoginPage', () => {
       cmp.password.set('Admin1234!');
       cmp.submit();
 
+      flushCsrfPriming(httpMock);
       httpMock.expectOne('/api/v1/auth/login').flush({
         accessToken: 'a',
         refreshToken: 'r',
@@ -131,6 +143,7 @@ describe('LoginPage', () => {
       fixture = TestBed.createComponent(LoginPage);
       httpMock = TestBed.inject(HttpTestingController);
       router = TestBed.inject(Router);
+      TestBed.inject(XsrfTokenStore).clear();
       spyOn(router, 'navigateByUrl');
     });
 
@@ -142,6 +155,7 @@ describe('LoginPage', () => {
       cmp.password.set('Admin1234!');
       cmp.submit();
 
+      flushCsrfPriming(httpMock);
       httpMock.expectOne('/api/v1/auth/login').flush({
         accessToken: 'a',
         refreshToken: 'r',

@@ -3,6 +3,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { Router } from '@angular/router';
 
 import { AuthService } from './auth.service';
+import { XsrfTokenStore } from '../http/xsrf-token.store';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -31,6 +32,7 @@ describe('AuthService', () => {
 
     service  = TestBed.inject(AuthService);
     httpMock = TestBed.inject(HttpTestingController);
+    TestBed.inject(XsrfTokenStore).clear();
 
     // Clear sessionStorage between tests to avoid cross-test pollution
     sessionStorage.clear();
@@ -40,6 +42,12 @@ describe('AuthService', () => {
     httpMock.verify();
     sessionStorage.clear();
   });
+
+  function flushCsrfPriming(): void {
+    const r = httpMock.expectOne('/actuator/health');
+    expect(r.request.method).toBe('GET');
+    r.flush(null, { headers: { 'X-XSRF-TOKEN': 'test-xsrf' } });
+  }
 
   it('should be created', () => {
     expect(service).toBeTruthy();
@@ -62,6 +70,7 @@ describe('AuthService', () => {
     it('sends POST to /api/v1/auth/login with credentials', () => {
       service.login('admin', 'secret').subscribe();
 
+      flushCsrfPriming();
       const req = httpMock.expectOne('/api/v1/auth/login');
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ username: 'admin', password: 'secret' });
@@ -70,6 +79,7 @@ describe('AuthService', () => {
 
     it('sets token and authentication state on success', () => {
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
 
       expect(service.isAuthenticated()).toBeTrue();
@@ -79,6 +89,7 @@ describe('AuthService', () => {
 
     it('stores refresh token in sessionStorage', () => {
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
 
       expect(service.hasRefreshToken()).toBeTrue();
@@ -86,6 +97,7 @@ describe('AuthService', () => {
 
     it('parses comma-separated roles correctly', () => {
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
 
       expect(service.canWrite()).toBeTrue();
@@ -93,6 +105,7 @@ describe('AuthService', () => {
 
     it('sets isAdmin for ROLE_ADMIN', () => {
       service.login('super', 'pass').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush({
         ...mockLoginResponse,
         roles: 'ROLE_ADMIN',
@@ -103,6 +116,7 @@ describe('AuthService', () => {
 
     it('sets canWrite to false for ANALYST role only', () => {
       service.login('viewer', 'pass').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush({
         ...mockLoginResponse,
         roles: 'ROLE_ANALYST',
@@ -118,6 +132,7 @@ describe('AuthService', () => {
     beforeEach(() => {
       // Seed a refresh token (simulates previous login)
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
     });
 
@@ -155,6 +170,7 @@ describe('AuthService', () => {
   describe('logout()', () => {
     it('clears authentication state and navigates to login', fakeAsync(() => {
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
       expect(service.isAuthenticated()).toBeTrue();
 
@@ -172,6 +188,7 @@ describe('AuthService', () => {
 
     it('clears session even when server-side logout fails', fakeAsync(() => {
       service.login('admin', 'secret').subscribe();
+      flushCsrfPriming();
       httpMock.expectOne('/api/v1/auth/login').flush(mockLoginResponse);
 
       service.logout();

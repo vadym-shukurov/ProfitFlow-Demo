@@ -30,7 +30,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.Collection;
@@ -77,52 +80,64 @@ public class SecurityConfig {
     private final RateLimitingFilter                 rateLimitingFilter;
     private final CorrelationIdFilter                correlationIdFilter;
     private final SensitiveApiCacheHeaderFilter      sensitiveApiCacheHeaderFilter;
+    private final CsrfTokenResponseHeaderFilter      csrfTokenResponseHeaderFilter;
     private final boolean                            openapiUnauthenticatedAccess;
 
     public SecurityConfig(
             RateLimitingFilter rateLimitingFilter,
             CorrelationIdFilter correlationIdFilter,
             SensitiveApiCacheHeaderFilter sensitiveApiCacheHeaderFilter,
+            CsrfTokenResponseHeaderFilter csrfTokenResponseHeaderFilter,
             @Value(&quot;${profitflow.security.openapi-unauthenticated-access:false}&quot;)
-<span class="fc" id="L87">            boolean openapiUnauthenticatedAccess) {</span>
-<span class="fc" id="L88">        this.rateLimitingFilter           = rateLimitingFilter;</span>
-<span class="fc" id="L89">        this.correlationIdFilter          = correlationIdFilter;</span>
-<span class="fc" id="L90">        this.sensitiveApiCacheHeaderFilter = sensitiveApiCacheHeaderFilter;</span>
-<span class="fc" id="L91">        this.openapiUnauthenticatedAccess = openapiUnauthenticatedAccess;</span>
-<span class="fc" id="L92">    }</span>
+<span class="fc" id="L92">            boolean openapiUnauthenticatedAccess) {</span>
+<span class="fc" id="L93">        this.rateLimitingFilter           = rateLimitingFilter;</span>
+<span class="fc" id="L94">        this.correlationIdFilter          = correlationIdFilter;</span>
+<span class="fc" id="L95">        this.sensitiveApiCacheHeaderFilter = sensitiveApiCacheHeaderFilter;</span>
+<span class="fc" id="L96">        this.csrfTokenResponseHeaderFilter = csrfTokenResponseHeaderFilter;</span>
+<span class="fc" id="L97">        this.openapiUnauthenticatedAccess = openapiUnauthenticatedAccess;</span>
+<span class="fc" id="L98">    }</span>
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-<span class="fc" id="L96">        return http</span>
-                // ── CSRF (Sonar java:S4502) ─────────────────────────────────
-                // Do not use csrf.disable() or broad ignoringRequestMatchers. Stateless
-                // JWT auth still serves browser clients; double-submit cookie CSRF lets
-                // SPAs send X-XSRF-TOKEN (CookieCsrfTokenRepository, httpOnly=false).
-<span class="fc" id="L101">                .csrf(csrf -&gt; csrf</span>
-<span class="fc" id="L102">                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))</span>
+<span class="fc" id="L102">        return http</span>
+                // ── CSRF (Sonar java:S4502 / java:S3330) ────────────────────
+                // Do not use csrf.disable() or broad ignoringRequestMatchers. Cookie is
+                // HttpOnly (default); {@link CsrfTokenResponseHeaderFilter} exposes the
+                // same token in X-XSRF-TOKEN for SPAs without document.cookie access.
+<span class="fc" id="L107">                .csrf(csrf -&gt; csrf</span>
+<span class="fc" id="L108">                        .csrfTokenRepository(new CookieCsrfTokenRepository())</span>
+                        // Spring Security defaults to XOR-masked tokens (good for HTML forms),
+                        // but SPAs and non-browser clients echo the raw token from the cookie/header.
+                        // Without this handler, valid raw tokens are rejected as &quot;Invalid CSRF token&quot;.
+<span class="fc" id="L112">                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())</span>
+                        // Token bootstrap endpoints carry credentials/tokens in the request body,
+                        // not via ambient cookies, so CSRF protection does not add meaningful safety
+                        // here but does add client fragility. Keep the ignore list narrowly scoped.
+<span class="fc" id="L116">                        .ignoringRequestMatchers(</span>
+                                new RegexRequestMatcher(&quot;^/api/v1/auth/(login|refresh)$&quot;, null)))
                 // ── Session management ──────────────────────────────────────
                 // Stateless JWT — no HttpSession for authentication state.
-<span class="fc" id="L105">                .sessionManagement(sm -&gt;</span>
-<span class="fc" id="L106">                        sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+<span class="fc" id="L120">                .sessionManagement(sm -&gt;</span>
+<span class="fc" id="L121">                        sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
 
                 // ── Endpoint authorisation ──────────────────────────────────
-<span class="fc" id="L109">                .authorizeHttpRequests(this::authorizeHttpRequests)</span>
+<span class="fc" id="L124">                .authorizeHttpRequests(this::authorizeHttpRequests)</span>
 
                 // ── JWT resource server ─────────────────────────────────────
-<span class="fc" id="L112">                .oauth2ResourceServer(rs -&gt; rs</span>
-<span class="fc" id="L113">                        .jwt(jwt -&gt; jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))</span>
+<span class="fc" id="L127">                .oauth2ResourceServer(rs -&gt; rs</span>
+<span class="fc" id="L128">                        .jwt(jwt -&gt; jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))</span>
 
                 // ── Security headers ────────────────────────────────────────
-<span class="fc" id="L116">                .headers(headers -&gt; headers</span>
-<span class="fc" id="L117">                        .frameOptions(frame -&gt; frame.deny())</span>
-<span class="fc" id="L118">                        .contentTypeOptions(Customizer.withDefaults())</span>
-<span class="fc" id="L119">                        .addHeaderWriter((request, response) -&gt;</span>
-<span class="fc" id="L120">                                response.setHeader(&quot;Permissions-Policy&quot;, PERMISSIONS_POLICY))</span>
-<span class="fc" id="L121">                        .httpStrictTransportSecurity(hsts -&gt; hsts</span>
-<span class="fc" id="L122">                                .maxAgeInSeconds(31_536_000)</span>
-<span class="fc" id="L123">                                .includeSubDomains(true)</span>
-<span class="fc" id="L124">                                .preload(true))</span>
-<span class="fc" id="L125">                        .contentSecurityPolicy(csp -&gt; csp.policyDirectives(</span>
+<span class="fc" id="L131">                .headers(headers -&gt; headers</span>
+<span class="fc" id="L132">                        .frameOptions(frame -&gt; frame.deny())</span>
+<span class="fc" id="L133">                        .contentTypeOptions(Customizer.withDefaults())</span>
+<span class="fc" id="L134">                        .addHeaderWriter((request, response) -&gt;</span>
+<span class="fc" id="L135">                                response.setHeader(&quot;Permissions-Policy&quot;, PERMISSIONS_POLICY))</span>
+<span class="fc" id="L136">                        .httpStrictTransportSecurity(hsts -&gt; hsts</span>
+<span class="fc" id="L137">                                .maxAgeInSeconds(31_536_000)</span>
+<span class="fc" id="L138">                                .includeSubDomains(true)</span>
+<span class="fc" id="L139">                                .preload(true))</span>
+<span class="fc" id="L140">                        .contentSecurityPolicy(csp -&gt; csp.policyDirectives(</span>
                                 &quot;default-src 'self'; &quot;
                                 + &quot;script-src 'self'; &quot;
                                 + &quot;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; &quot;
@@ -131,47 +146,56 @@ public class SecurityConfig {
                                 + &quot;frame-ancestors 'none'; &quot;
                                 + &quot;base-uri 'self'; &quot;
                                 + &quot;form-action 'self'&quot;))
-<span class="fc" id="L134">                        .referrerPolicy(rp -&gt; rp.policy(</span>
+<span class="fc" id="L149">                        .referrerPolicy(rp -&gt; rp.policy(</span>
                                 ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 )
 
                 // ── Custom filters ──────────────────────────────────────────
-<span class="fc" id="L139">                .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)</span>
-<span class="fc" id="L140">                .addFilterAfter(sensitiveApiCacheHeaderFilter, CorrelationIdFilter.class)</span>
-<span class="fc" id="L141">                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)</span>
+<span class="fc" id="L154">                .addFilterAfter(csrfTokenResponseHeaderFilter, CsrfFilter.class)</span>
+<span class="fc" id="L155">                .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)</span>
+<span class="fc" id="L156">                .addFilterAfter(sensitiveApiCacheHeaderFilter, CorrelationIdFilter.class)</span>
+<span class="fc" id="L157">                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)</span>
 
-<span class="fc" id="L143">                .build();</span>
+<span class="fc" id="L159">                .build();</span>
     }
 
     private void authorizeHttpRequests(
             AuthorizeHttpRequestsConfigurer&lt;HttpSecurity&gt;.AuthorizationManagerRequestMatcherRegistry auth) {
-<span class="fc" id="L148">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/login&quot;).permitAll();</span>
-<span class="fc" id="L149">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/refresh&quot;).permitAll();</span>
-<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        if (openapiUnauthenticatedAccess) {</span>
-<span class="nc" id="L151">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
-<span class="nc" id="L152">                    &quot;/swagger-ui.html&quot;).permitAll();</span>
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if (openapiUnauthenticatedAccess) {</span>
+<span class="nc" id="L165">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
+<span class="nc" id="L166">                    &quot;/swagger-ui.html&quot;).permitAll();</span>
         } else {
-<span class="fc" id="L154">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
-<span class="fc" id="L155">                    &quot;/swagger-ui.html&quot;).hasRole(&quot;ADMIN&quot;);</span>
+<span class="fc" id="L168">            auth.requestMatchers(&quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;,</span>
+<span class="fc" id="L169">                    &quot;/swagger-ui.html&quot;).hasRole(&quot;ADMIN&quot;);</span>
         }
-<span class="fc" id="L157">        auth.requestMatchers(&quot;/actuator/health&quot;, &quot;/actuator/info&quot;,</span>
+<span class="fc" id="L171">        auth.requestMatchers(&quot;/actuator/health&quot;, &quot;/actuator/info&quot;,</span>
                 &quot;/actuator/health/liveness&quot;,
-<span class="fc" id="L159">                &quot;/actuator/health/readiness&quot;).permitAll();</span>
-<span class="fc" id="L160">        auth.requestMatchers(&quot;/actuator/prometheus&quot;, &quot;/actuator/metrics&quot;,</span>
-<span class="fc" id="L161">                &quot;/actuator/caches&quot;).hasRole(&quot;ADMIN&quot;);</span>
-<span class="fc" id="L162">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout&quot;)</span>
-<span class="fc" id="L163">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
-<span class="fc" id="L164">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout/all&quot;)</span>
-<span class="fc" id="L165">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
-<span class="fc" id="L166">        auth.requestMatchers(&quot;/api/v1/admin/**&quot;).hasRole(&quot;ADMIN&quot;);</span>
-<span class="fc" id="L167">        auth.requestMatchers(HttpMethod.GET, &quot;/api/v1/**&quot;)</span>
-<span class="fc" id="L168">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
-<span class="fc" id="L169">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/ai/suggest&quot;)</span>
-<span class="fc" id="L170">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
-<span class="fc" id="L171">        auth.requestMatchers(&quot;/api/v1/**&quot;)</span>
-<span class="fc" id="L172">                .hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
-<span class="fc" id="L173">        auth.anyRequest().denyAll();</span>
-<span class="fc" id="L174">    }</span>
+<span class="fc" id="L173">                &quot;/actuator/health/readiness&quot;).permitAll();</span>
+<span class="fc" id="L174">        auth.requestMatchers(&quot;/actuator/prometheus&quot;, &quot;/actuator/metrics&quot;,</span>
+<span class="fc" id="L175">                &quot;/actuator/caches&quot;).hasRole(&quot;ADMIN&quot;);</span>
+<span class="fc" id="L176">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout&quot;)</span>
+<span class="fc" id="L177">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L178">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/logout/all&quot;)</span>
+<span class="fc" id="L179">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L180">        auth.requestMatchers(&quot;/api/v1/admin/**&quot;).hasRole(&quot;ADMIN&quot;);</span>
+<span class="fc" id="L181">        auth.requestMatchers(HttpMethod.GET, &quot;/api/v1/**&quot;)</span>
+<span class="fc" id="L182">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L183">        auth.requestMatchers(HttpMethod.POST, &quot;/api/v1/ai/suggest&quot;)</span>
+<span class="fc" id="L184">                .hasAnyRole(&quot;ANALYST&quot;, &quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+        // Write operations: explicitly enumerate the API surface so auth endpoints can't
+        // be accidentally captured by a broad &quot;/api/v1/**&quot; matcher.
+<span class="fc" id="L187">        auth.requestMatchers(&quot;/api/v1/activities/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L188">        auth.requestMatchers(&quot;/api/v1/products/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L189">        auth.requestMatchers(&quot;/api/v1/resource-costs/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L190">        auth.requestMatchers(&quot;/api/v1/rules/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L191">        auth.requestMatchers(&quot;/api/v1/allocations/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+<span class="fc" id="L192">        auth.requestMatchers(&quot;/api/v1/ai/**&quot;).hasAnyRole(&quot;FINANCE_MANAGER&quot;, &quot;ADMIN&quot;);</span>
+
+        // Authentication bootstrap endpoints must be reachable without a JWT.
+<span class="fc" id="L195">        auth.requestMatchers(new RegexRequestMatcher(&quot;^/api/v1/auth/(login|refresh)$&quot;, null))</span>
+<span class="fc" id="L196">                .permitAll();</span>
+<span class="fc" id="L197">        auth.anyRequest().denyAll();</span>
+<span class="fc" id="L198">    }</span>
 
     /**
      * Maps the JWT {@code roles} claim (space-separated authority strings) back into
@@ -179,12 +203,12 @@ public class SecurityConfig {
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-<span class="fc" id="L182">        JwtGrantedAuthoritiesConverter converter = new JwtGrantedAuthoritiesConverter();</span>
-<span class="fc" id="L183">        converter.setAuthoritiesClaimName(&quot;roles&quot;);</span>
-<span class="fc" id="L184">        converter.setAuthorityPrefix(&quot;&quot;);  // prefix already in the token</span>
-<span class="fc" id="L185">        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();</span>
-<span class="fc" id="L186">        jwtConverter.setJwtGrantedAuthoritiesConverter(converter);</span>
-<span class="fc" id="L187">        return jwtConverter;</span>
+<span class="fc" id="L206">        JwtGrantedAuthoritiesConverter converter = new JwtGrantedAuthoritiesConverter();</span>
+<span class="fc" id="L207">        converter.setAuthoritiesClaimName(&quot;roles&quot;);</span>
+<span class="fc" id="L208">        converter.setAuthorityPrefix(&quot;&quot;);  // prefix already in the token</span>
+<span class="fc" id="L209">        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();</span>
+<span class="fc" id="L210">        jwtConverter.setJwtGrantedAuthoritiesConverter(converter);</span>
+<span class="fc" id="L211">        return jwtConverter;</span>
     }
 
     /**
@@ -202,39 +226,39 @@ public class SecurityConfig {
     @ConditionalOnMissingBean
     public JwtDecoder jwtDecoder(RsaKeyLoader keyLoader,
                                  TokenRevocationService revocationService) {
-<span class="fc" id="L205">        NimbusJwtDecoder primary = buildJwtDecoder(keyLoader.publicKey(), revocationService);</span>
-<span class="fc" id="L206">        return keyLoader.previousVerificationPublicKey()</span>
-<span class="pc" id="L207">                .&lt;JwtDecoder&gt;map(prev -&gt; new FallbackJwtDecoder(primary,</span>
-<span class="nc" id="L208">                        buildJwtDecoder(prev, revocationService)))</span>
-<span class="fc" id="L209">                .orElse(primary);</span>
+<span class="fc" id="L229">        NimbusJwtDecoder primary = buildJwtDecoder(keyLoader.publicKey(), revocationService);</span>
+<span class="fc" id="L230">        return keyLoader.previousVerificationPublicKey()</span>
+<span class="pc" id="L231">                .&lt;JwtDecoder&gt;map(prev -&gt; new FallbackJwtDecoder(primary,</span>
+<span class="nc" id="L232">                        buildJwtDecoder(prev, revocationService)))</span>
+<span class="fc" id="L233">                .orElse(primary);</span>
     }
 
     private static NimbusJwtDecoder buildJwtDecoder(RSAPublicKey publicKey,
                                                     TokenRevocationService revocationService) {
-<span class="fc" id="L214">        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(publicKey).build();</span>
-<span class="fc" id="L215">        OAuth2TokenValidator&lt;Jwt&gt; issuerValidator =</span>
-<span class="fc" id="L216">                JwtValidators.createDefaultWithIssuer(JwtTokenService.AUDIENCE);</span>
-<span class="fc" id="L217">        OAuth2TokenValidator&lt;Jwt&gt; audienceValidator =</span>
+<span class="fc" id="L238">        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(publicKey).build();</span>
+<span class="fc" id="L239">        OAuth2TokenValidator&lt;Jwt&gt; issuerValidator =</span>
+<span class="fc" id="L240">                JwtValidators.createDefaultWithIssuer(JwtTokenService.AUDIENCE);</span>
+<span class="fc" id="L241">        OAuth2TokenValidator&lt;Jwt&gt; audienceValidator =</span>
                 new JwtClaimValidator&lt;Collection&lt;String&gt;&gt;(&quot;aud&quot;,
-<span class="nc bnc" id="L219" title="All 4 branches missed.">                        aud -&gt; aud != null &amp;&amp; aud.contains(JwtTokenService.AUDIENCE));</span>
-<span class="fc" id="L220">        OAuth2TokenValidator&lt;Jwt&gt; revocationValidator =</span>
+<span class="nc bnc" id="L243" title="All 4 branches missed.">                        aud -&gt; aud != null &amp;&amp; aud.contains(JwtTokenService.AUDIENCE));</span>
+<span class="fc" id="L244">        OAuth2TokenValidator&lt;Jwt&gt; revocationValidator =</span>
                 new RevokedTokenValidator(revocationService);
-<span class="fc" id="L222">        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator&lt;&gt;(</span>
+<span class="fc" id="L246">        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator&lt;&gt;(</span>
                 issuerValidator, audienceValidator, revocationValidator));
-<span class="fc" id="L224">        return decoder;</span>
+<span class="fc" id="L248">        return decoder;</span>
     }
 
     @Bean
     @ConditionalOnMissingBean
     public JwtEncoder jwtEncoder(RsaKeyLoader keyLoader) {
-<span class="fc" id="L230">        RSAKey jwk = keyLoader.signingJwk();</span>
-<span class="fc" id="L231">        return new NimbusJwtEncoder(new ImmutableJWKSet&lt;&gt;(new JWKSet(jwk)));</span>
+<span class="fc" id="L254">        RSAKey jwk = keyLoader.signingJwk();</span>
+<span class="fc" id="L255">        return new NimbusJwtEncoder(new ImmutableJWKSet&lt;&gt;(new JWKSet(jwk)));</span>
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         // Cost factor 12 — ~250ms on modern hardware; intentionally slow for brute-force defence
-<span class="fc" id="L237">        return new BCryptPasswordEncoder(12);</span>
+<span class="fc" id="L261">        return new BCryptPasswordEncoder(12);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

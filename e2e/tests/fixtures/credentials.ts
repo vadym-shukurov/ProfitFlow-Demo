@@ -3,7 +3,11 @@
  * Defaults match {@code DemoDataSeeder} non-production demo users (never use in prod).
  */
 export function e2eAdminUser(): string {
-  return process.env.E2E_ADMIN_USER ?? 'admin';
+  const u = process.env.E2E_ADMIN_USER;
+  if (u && u.length > 0) {
+    return u;
+  }
+  return 'admin';
 }
 
 export function e2eAdminPassword(): string {

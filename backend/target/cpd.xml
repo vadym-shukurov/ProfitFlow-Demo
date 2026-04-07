@@ -2,7 +2,7 @@
 <pmd-cpd xmlns="https://pmd-code.org/schema/cpd-report"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          pmdVersion="7.7.0"
-         timestamp="2026-04-07T01:33:44.256476+02:00"
+         timestamp="2026-04-07T12:12:07.363656+02:00"
          version="1.0.0"
          xsi:schemaLocation="https://pmd-code.org/schema/cpd-report https://pmd.github.io/schema/cpd-report_1_0_0.xsd">
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/ProfitflowApplication.java"
@@ -30,7 +30,7 @@
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/ResourceCostController.java"
          totalNumberOfTokens="246"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebConfig.java"
-         totalNumberOfTokens="256"/>
+         totalNumberOfTokens="258"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebMapper.java"
          totalNumberOfTokens="114"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/dto/ActivityProductRuleDto.java"
@@ -285,6 +285,8 @@
          totalNumberOfTokens="15"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CorrelationIdFilter.java"
          totalNumberOfTokens="180"/>
+   <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CsrfTokenResponseHeaderFilter.java"
+         totalNumberOfTokens="181"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/FallbackJwtDecoder.java"
          totalNumberOfTokens="95"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/JwtTokenService.java"
@@ -300,7 +302,7 @@
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RsaKeyProperties.java"
          totalNumberOfTokens="19"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityConfig.java"
-         totalNumberOfTokens="772"/>
+         totalNumberOfTokens="864"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityEnvironmentValidator.java"
          totalNumberOfTokens="524"/>
    <file path="/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SensitiveApiCacheHeaderFilter.java"

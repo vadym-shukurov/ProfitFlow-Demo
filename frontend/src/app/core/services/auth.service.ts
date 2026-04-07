@@ -1,7 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, EMPTY, map, firstValueFrom } from 'rxjs';
+import { Observable, tap, catchError, EMPTY, map, firstValueFrom, of, switchMap } from 'rxjs';
+
+import { XSRF_HEADER } from '../http/xsrf.interceptor';
+import { XsrfTokenStore } from '../http/xsrf-token.store';
 
 /**
  * Authentication service — manages access and refresh token lifecycle.
@@ -21,6 +24,7 @@ import { Observable, tap, catchError, EMPTY, map, firstValueFrom } from 'rxjs';
 export class AuthService {
   private readonly http   = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly xsrf   = inject(XsrfTokenStore);
 
   // Stored in memory only — cleared on page refresh
   private readonly _token    = signal<string | null>(null);
@@ -53,7 +57,10 @@ export class AuthService {
    * Returns the Observable so callers can subscribe and react to success/error.
    */
   login(username: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>('/api/v1/auth/login', { username, password }).pipe(
+    return this.primeCsrfIfNeeded().pipe(
+      switchMap(() =>
+        this.http.post<AuthResponse>('/api/v1/auth/login', { username, password })
+      ),
       tap(response => this.applyAuthResponse(response))
     );
   }
@@ -73,8 +80,10 @@ export class AuthService {
     if (!storedRefreshToken) {
       return EMPTY;
     }
-    return this.http.post<AuthResponse>('/api/v1/auth/refresh',
-        { refreshToken: storedRefreshToken }).pipe(
+    return this.primeCsrfIfNeeded().pipe(
+      switchMap(() =>
+        this.http.post<AuthResponse>('/api/v1/auth/refresh', { refreshToken: storedRefreshToken })
+      ),
       tap(response => this.applyAuthResponse(response)),
       map(response => response.accessToken)
     );
@@ -136,6 +145,26 @@ export class AuthService {
     this._username.set(null);
     this._roles.set([]);
     sessionStorage.removeItem('pf_rt');
+    this.xsrf.clear();
+  }
+
+  /**
+   * Ensures we have a CSRF header value before the first mutating call (e.g. login/refresh
+   * can run before any other API GET). Uses public health — same origin as the API.
+   */
+  private primeCsrfIfNeeded(): Observable<void> {
+    if (this.xsrf.get()) {
+      return of(void 0);
+    }
+    return this.http.get('/actuator/health', { observe: 'response' }).pipe(
+      tap(res => {
+        const h = res.headers.get(XSRF_HEADER);
+        if (h) {
+          this.xsrf.set(h);
+        }
+      }),
+      map(() => void 0)
+    );
   }
 }
 

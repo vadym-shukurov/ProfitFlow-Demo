@@ -285,6 +285,7 @@ What `./scripts/ci-with-servers.sh` does:
 - Runs Playwright UI + API tests
 - Runs LHCI (unless auto-skipped locally) and Artillery probe
 - Writes API/UI logs to temp files **only on failure**
+- CSRF: primes the `XSRF-TOKEN` cookie and sends `X-XSRF-TOKEN` for state-changing requests (same pattern as the SPA)
 
 ### Quality analysis (SonarQube and SonarCloud)
 

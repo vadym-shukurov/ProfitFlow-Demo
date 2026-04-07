@@ -157,6 +157,13 @@
             <version>1.4.1</version>
             <scope>test</scope>
         </dependency>
+        <!-- Mutable env vars for {@link com.profitflow.security.RsaKeyLoader} branches that use System.getenv -->
+        <dependency>
+            <groupId>uk.org.webcompere</groupId>
+            <artifactId>system-stubs-jupiter</artifactId>
+            <version>2.1.6</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

@@ -85,8 +85,8 @@ public class RsaKeyLoader {
      */
     public String signingKeyId() {
 <span class="fc" id="L87">        String fromEnv = System.getenv(ENV_SIGNING_KEY_ID);</span>
-<span class="pc bpc" id="L88" title="3 of 4 branches missed.">        if (fromEnv != null &amp;&amp; !fromEnv.isBlank()) {</span>
-<span class="nc" id="L89">            return fromEnv.trim();</span>
+<span class="pc bpc" id="L88" title="1 of 4 branches missed.">        if (fromEnv != null &amp;&amp; !fromEnv.isBlank()) {</span>
+<span class="fc" id="L89">            return fromEnv.trim();</span>
         }
 <span class="fc" id="L91">        return configuredSigningKeyId;</span>
     }
@@ -109,16 +109,16 @@ public class RsaKeyLoader {
      */
     public Optional&lt;RSAPublicKey&gt; previousVerificationPublicKey() {
 <span class="fc" id="L111">        String prevPem = System.getenv(ENV_PREV_PUBLIC);</span>
-<span class="pc bpc" id="L112" title="3 of 4 branches missed.">        if (prevPem == null || prevPem.isBlank()) {</span>
+<span class="pc bpc" id="L112" title="1 of 4 branches missed.">        if (prevPem == null || prevPem.isBlank()) {</span>
 <span class="fc" id="L113">            return Optional.empty();</span>
         }
-<span class="nc" id="L115">        RSAPublicKey prevPub = parsePublicKey(prevPem);</span>
-<span class="nc" id="L116">        String prevKid = System.getenv(ENV_PREV_KEY_ID);</span>
-<span class="nc bnc" id="L117" title="All 4 branches missed.">        if (prevKid == null || prevKid.isBlank()) {</span>
-<span class="nc" id="L118">            prevKid = &quot;profitflow-0&quot;;</span>
+<span class="fc" id="L115">        RSAPublicKey prevPub = parsePublicKey(prevPem);</span>
+<span class="fc" id="L116">        String prevKid = System.getenv(ENV_PREV_KEY_ID);</span>
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">        if (prevKid == null || prevKid.isBlank()) {</span>
+<span class="fc" id="L118">            prevKid = &quot;profitflow-0&quot;;</span>
         }
-<span class="nc" id="L120">        log.info(&quot;JWT verification will fall back to previous key kid={}&quot;, prevKid.trim());</span>
-<span class="nc" id="L121">        return Optional.of(prevPub);</span>
+<span class="fc" id="L120">        log.info(&quot;JWT verification will fall back to previous key kid={}&quot;, prevKid.trim());</span>
+<span class="fc" id="L121">        return Optional.of(prevPub);</span>
     }
 
     /**
@@ -229,10 +229,10 @@ public class RsaKeyLoader {
      */
     private static RSAPublicKey parsePublicKey(String pem) {
         try {
-<span class="nc" id="L232">            String base64 = stripPemHeaders(pem);</span>
-<span class="nc" id="L233">            byte[] der = Base64.getDecoder().decode(base64);</span>
-<span class="nc" id="L234">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
-<span class="nc" id="L235">            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));</span>
+<span class="fc" id="L232">            String base64 = stripPemHeaders(pem);</span>
+<span class="fc" id="L233">            byte[] der = Base64.getDecoder().decode(base64);</span>
+<span class="fc" id="L234">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="fc" id="L235">            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));</span>
 <span class="nc" id="L236">        } catch (Exception e) {</span>
 <span class="nc" id="L237">            throw new IllegalStateException(</span>
 <span class="nc" id="L238">                    &quot;Failed to parse RSA public key from RSA_PUBLIC_KEY_PEM: &quot; + e.getMessage(), e);</span>
@@ -260,10 +260,10 @@ public class RsaKeyLoader {
      * Removes PEM header/footer lines and all whitespace to produce a raw base64 string.
      */
     private static String stripPemHeaders(String pem) {
-<span class="nc" id="L263">        return pem</span>
-<span class="nc" id="L264">                .replaceAll(&quot;-----BEGIN[^-]*-----&quot;, &quot;&quot;)</span>
-<span class="nc" id="L265">                .replaceAll(&quot;-----END[^-]*-----&quot;, &quot;&quot;)</span>
-<span class="nc" id="L266">                .replaceAll(&quot;\\s&quot;, &quot;&quot;);</span>
+<span class="fc" id="L263">        return pem</span>
+<span class="fc" id="L264">                .replaceAll(&quot;-----BEGIN[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="fc" id="L265">                .replaceAll(&quot;-----END[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="fc" id="L266">                .replaceAll(&quot;\\s&quot;, &quot;&quot;);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

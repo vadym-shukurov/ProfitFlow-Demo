@@ -6,7 +6,14 @@ import { e2eAdminPassword, e2eAdminUser, e2eAnalystPassword } from '../fixtures/
  * API acceptance checks — auth, catalogue, allocation, AI, token lifecycle, RBAC.
  * Uses native fetch (Node 20+) so requests hit the Spring app reliably; see docs/testing/COVERAGE.md.
  */
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:8080';
+const DEFAULT_API_PORT = process.env.API_PORT ?? '18080';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? `http://127.0.0.1:${DEFAULT_API_PORT}`;
+if (process.env.CI && !process.env.PLAYWRIGHT_API_BASE_URL) {
+  // In CI we always start the API on a dedicated port (see e2e/scripts/ci-with-servers.sh).
+  // Falling back to :8080 can accidentally hit a developer machine's stale process and produce
+  // misleading auth failures (401) even though the E2E API is healthy.
+  throw new Error('Missing PLAYWRIGHT_API_BASE_URL; refusing to default to :8080 in CI');
+}
 
 /** Spring {@code CookieCsrfTokenRepository} — cookie + matching header on mutating requests. */
 const cookieJar = new Map<string, string>();

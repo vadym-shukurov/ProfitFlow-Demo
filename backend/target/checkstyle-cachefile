@@ -1,4 +1,4 @@
-#Tue Apr 07 01:33:43 CEST 2026
+#Tue Apr 07 12:12:06 CEST 2026
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/ProfitflowApplication.java=1775426267405
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/ActivityController.java=1775403682703
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/AiSuggestionController.java=1775400085569
@@ -11,7 +11,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/OpenApiDocumentationConfig.java=1775428788938
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/ProductController.java=1775403686536
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/ResourceCostController.java=1775426307569
-/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebConfig.java=1775518105664
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebConfig.java=1775519231300
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/WebMapper.java=1775409284454
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/dto/ActivityProductRuleDto.java=1775405669436
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/adapter/in/web/dto/ActivityResponse.java=1775412624054
@@ -139,6 +139,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/ClientIpResolver.java=1775498169728
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/ClientIpResolverPort.java=1775413296192
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CorrelationIdFilter.java=1775422305363
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/CsrfTokenResponseHeaderFilter.java=1775553698718
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/FallbackJwtDecoder.java=1775426424773
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/JwtTokenService.java=1775426252189
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RateLimitingFilter.java=1775498169710
@@ -146,7 +147,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RevokedTokenValidator.java=1775418159662
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RsaKeyLoader.java=1775516399298
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/RsaKeyProperties.java=1775405474203
-/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityConfig.java=1775518250999
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityConfig.java=1775556435048
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SecurityEnvironmentValidator.java=1775430423397
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SensitiveApiCacheHeaderFilter.java=1775430371347
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/main/java/com/profitflow/security/SpringCurrentUserPort.java=1775428022594

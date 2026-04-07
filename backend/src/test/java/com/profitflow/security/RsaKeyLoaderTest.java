@@ -1,7 +1,11 @@
 package com.profitflow.security;
 
 import org.junit.jupiter.api.Test;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -29,6 +33,16 @@ class RsaKeyLoaderTest {
             return new RsaKeyProperties((RSAPublicKey) pair.getPublic(), (RSAPrivateKey) pair.getPrivate());
         } catch (Exception e) {
             throw new IllegalStateException("Could not generate RSA test keypair: " + e.getMessage(), e);
+        }
+    }
+
+    private static String readClasspathPem(String classpathLocation) throws IOException {
+        ClassLoader cl = RsaKeyLoaderTest.class.getClassLoader();
+        try (InputStream in = cl.getResourceAsStream(classpathLocation)) {
+            if (in == null) {
+                throw new IllegalStateException("Missing classpath resource: " + classpathLocation);
+            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
@@ -105,6 +119,15 @@ class RsaKeyLoaderTest {
     }
 
     @Test
+    void signingKeyIdTrimsJwtSigningKeyIdFromEnv() throws Exception {
+        RsaKeyProperties keys = generatedKeys();
+        new EnvironmentVariables("JWT_SIGNING_KEY_ID", "  env-kid  ").execute(() -> {
+            RsaKeyLoader loader = new RsaKeyLoader(keys, "default", "ignored-property-kid");
+            assertThat(loader.signingKeyId()).isEqualTo("env-kid");
+        });
+    }
+
+    @Test
     void signingJwkCarriesSameKid() {
         RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "kid-99");
 
@@ -116,6 +139,32 @@ class RsaKeyLoaderTest {
         RsaKeyLoader loader = new RsaKeyLoader(generatedKeys(), "default", "profitflow-1");
 
         assertThat(loader.previousVerificationPublicKey()).isEmpty();
+    }
+
+    @Test
+    void previousVerificationPublicKeyPresentWhenEnvPemSet() throws Exception {
+        String pem = readClasspathPem("certs/public.pem");
+        RsaKeyProperties keys = generatedKeys();
+        new EnvironmentVariables(
+                "RSA_PREVIOUS_PUBLIC_KEY_PEM", pem,
+                "RSA_PREVIOUS_KEY_ID", "custom-rotation-kid"
+        ).execute(() -> {
+            RsaKeyLoader loader = new RsaKeyLoader(keys, "default", "profitflow-1");
+            assertThat(loader.previousVerificationPublicKey()).isPresent();
+        });
+    }
+
+    @Test
+    void previousVerificationPublicKeyUsesDefaultKidWhenKeyIdBlank() throws Exception {
+        String pem = readClasspathPem("certs/public.pem");
+        RsaKeyProperties keys = generatedKeys();
+        new EnvironmentVariables(
+                "RSA_PREVIOUS_PUBLIC_KEY_PEM", pem,
+                "RSA_PREVIOUS_KEY_ID", "   "
+        ).execute(() -> {
+            RsaKeyLoader loader = new RsaKeyLoader(keys, "default", "profitflow-1");
+            assertThat(loader.previousVerificationPublicKey()).isPresent();
+        });
     }
 
     @Test

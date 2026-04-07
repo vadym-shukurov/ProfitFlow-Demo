@@ -187,4 +187,44 @@ class AuditAspectTest {
         verify(auditLogRepo).save(captor.capture());
         assertThat(captor.getValue().getEntityId()).isNull();
     }
+
+    @Test
+    void hyphenatedPropertyPathRejectedBeforeBeanWrapper() throws Throwable {
+        record DomainEntity(String id) {}
+        when(pjp.proceed()).thenReturn(new DomainEntity("e1"));
+        var audited = annotation("ACTION", "Entity", "bad-segment", false);
+
+        aspect.around(pjp, audited);
+
+        ArgumentCaptor<AuditLogEntity> captor = ArgumentCaptor.forClass(AuditLogEntity.class);
+        verify(auditLogRepo).save(captor.capture());
+        assertThat(captor.getValue().getEntityId()).isNull();
+    }
+
+    @Test
+    void resultPrefixOnlyRejectedAsEmptyPath() throws Throwable {
+        record DomainEntity(String id) {}
+        when(pjp.proceed()).thenReturn(new DomainEntity("x"));
+        var audited = annotation("ACTION", "Entity", "#result.", false);
+
+        aspect.around(pjp, audited);
+
+        ArgumentCaptor<AuditLogEntity> captor = ArgumentCaptor.forClass(AuditLogEntity.class);
+        verify(auditLogRepo).save(captor.capture());
+        assertThat(captor.getValue().getEntityId()).isNull();
+    }
+
+    @Test
+    void nestedBeanPathExtractsInnerId() throws Throwable {
+        record Inner(String id) {}
+        record Outer(Inner user) {}
+        when(pjp.proceed()).thenReturn(new Outer(new Inner("inner-42")));
+        var audited = annotation("CREATE", "Outer", "user.id", false);
+
+        aspect.around(pjp, audited);
+
+        ArgumentCaptor<AuditLogEntity> captor = ArgumentCaptor.forClass(AuditLogEntity.class);
+        verify(auditLogRepo).save(captor.capture());
+        assertThat(captor.getValue().getEntityId()).isEqualTo("inner-42");
+    }
 }

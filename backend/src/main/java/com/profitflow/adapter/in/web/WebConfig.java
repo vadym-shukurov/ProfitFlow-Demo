@@ -51,7 +51,7 @@ public class WebConfig {
                                 "Accept",
                                 "X-Correlation-Id",
                                 "X-XSRF-TOKEN")
-                        .exposedHeaders("X-Correlation-Id")
+                        .exposedHeaders("X-Correlation-Id", "X-XSRF-TOKEN")
                         .allowCredentials(false)
                         .maxAge(3600);
             }

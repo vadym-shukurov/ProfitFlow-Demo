@@ -32,6 +32,7 @@
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/domain/allocation/ProportionalAllocatorTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/DefaultBusinessMetricsTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/DefaultDomainEventDispatchAdapterTest.java
+/Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/DemoSeedPropertiesTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/infrastructure/PermissiveAllocationExecutionPolicyTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/AuditAspectTest.java
 /Users/vadym.shukurov/Documents/GitHub/ProfitFlow-Demo/backend/src/test/java/com/profitflow/security/AuditServiceTest.java

@@ -30,7 +30,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.Collection;
@@ -77,29 +80,41 @@ public class SecurityConfig {
     private final RateLimitingFilter                 rateLimitingFilter;
     private final CorrelationIdFilter                correlationIdFilter;
     private final SensitiveApiCacheHeaderFilter      sensitiveApiCacheHeaderFilter;
+    private final CsrfTokenResponseHeaderFilter      csrfTokenResponseHeaderFilter;
     private final boolean                            openapiUnauthenticatedAccess;
 
     public SecurityConfig(
             RateLimitingFilter rateLimitingFilter,
             CorrelationIdFilter correlationIdFilter,
             SensitiveApiCacheHeaderFilter sensitiveApiCacheHeaderFilter,
+            CsrfTokenResponseHeaderFilter csrfTokenResponseHeaderFilter,
             @Value("${profitflow.security.openapi-unauthenticated-access:false}")
             boolean openapiUnauthenticatedAccess) {
         this.rateLimitingFilter           = rateLimitingFilter;
         this.correlationIdFilter          = correlationIdFilter;
         this.sensitiveApiCacheHeaderFilter = sensitiveApiCacheHeaderFilter;
+        this.csrfTokenResponseHeaderFilter = csrfTokenResponseHeaderFilter;
         this.openapiUnauthenticatedAccess = openapiUnauthenticatedAccess;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                // ── CSRF (Sonar java:S4502) ─────────────────────────────────
-                // Do not use csrf.disable() or broad ignoringRequestMatchers. Stateless
-                // JWT auth still serves browser clients; double-submit cookie CSRF lets
-                // SPAs send X-XSRF-TOKEN (CookieCsrfTokenRepository, httpOnly=false).
+                // ── CSRF (Sonar java:S4502 / java:S3330) ────────────────────
+                // Do not use csrf.disable() or broad ignoringRequestMatchers. Cookie is
+                // HttpOnly (default); {@link CsrfTokenResponseHeaderFilter} exposes the
+                // same token in X-XSRF-TOKEN for SPAs without document.cookie access.
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                        .csrfTokenRepository(new CookieCsrfTokenRepository())
+                        // Spring Security defaults to XOR-masked tokens (good for HTML forms),
+                        // but SPAs and non-browser clients echo the raw token from the cookie/header.
+                        // Without this handler, valid raw tokens are rejected as "Invalid CSRF token".
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // Token bootstrap endpoints carry credentials/tokens in the request body,
+                        // not via ambient cookies, so CSRF protection does not add meaningful safety
+                        // here but does add client fragility. Keep the ignore list narrowly scoped.
+                        .ignoringRequestMatchers(
+                                new RegexRequestMatcher("^/api/v1/auth/(login|refresh)$", null)))
                 // ── Session management ──────────────────────────────────────
                 // Stateless JWT — no HttpSession for authentication state.
                 .sessionManagement(sm ->
@@ -136,6 +151,7 @@ public class SecurityConfig {
                 )
 
                 // ── Custom filters ──────────────────────────────────────────
+                .addFilterAfter(csrfTokenResponseHeaderFilter, CsrfFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(sensitiveApiCacheHeaderFilter, CorrelationIdFilter.class)
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
@@ -145,8 +161,6 @@ public class SecurityConfig {
 
     private void authorizeHttpRequests(
             AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll();
-        auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll();
         if (openapiUnauthenticatedAccess) {
             auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**",
                     "/swagger-ui.html").permitAll();
@@ -168,8 +182,18 @@ public class SecurityConfig {
                 .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
         auth.requestMatchers(HttpMethod.POST, "/api/v1/ai/suggest")
                 .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/**")
-                .hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        // Write operations: explicitly enumerate the API surface so auth endpoints can't
+        // be accidentally captured by a broad "/api/v1/**" matcher.
+        auth.requestMatchers("/api/v1/activities/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/products/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/resource-costs/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/rules/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/allocations/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/ai/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+
+        // Authentication bootstrap endpoints must be reachable without a JWT.
+        auth.requestMatchers(new RegexRequestMatcher("^/api/v1/auth/(login|refresh)$", null))
+                .permitAll();
         auth.anyRequest().denyAll();
     }
 
