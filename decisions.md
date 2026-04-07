@@ -20,3 +20,13 @@ Add entries when you make a decision that should persist beyond a single PR (too
   - Cross-cutting decisions (like this one) go in `decisions.md`.
 - **Source**: Inspired by GitHub’s write-up on Squad orchestration (see: `https://github.blog/ai-and-ml/github-copilot/how-squad-runs-coordinated-ai-agents-inside-your-repository/`).
 
+### 2026-04-07 — Single workflow contract + stop-ship rules
+
+- **Decision**: Standardize all agent work on a single pipeline (think → plan → build → review → test → document → record) with explicit stop conditions.
+- **Why**: Reduce “agent drift” (inconsistent behavior across sessions), improve merge readiness, and prevent half-finished work from accumulating.
+- **How**:
+  - Treat any failing tests/CI as a stop-ship.
+  - Encode ambiguity as assumptions in `decisions.md`, then proceed.
+  - Require a short `.squad/history/*` note for every non-trivial change (what/tests/risks).
+- **Source**: Inspired by `gstack`’s role + pipeline framing (skills like plan/review/qa/ship) and its emphasis on operational guardrails.
+
