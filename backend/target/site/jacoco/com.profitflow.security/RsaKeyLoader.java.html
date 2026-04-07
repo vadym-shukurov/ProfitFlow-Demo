@@ -18,7 +18,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Loads the RSA key pair used to sign and verify JWTs.
@@ -76,7 +76,7 @@ public class RsaKeyLoader {
     /** {@code kid} claim for access tokens signed with the current private key. */
     private final String configuredSigningKeyId;
 
-    private final Function&lt;String, String&gt; getenv;
+    private final UnaryOperator&lt;String&gt; getenv;
 
     @Autowired
     public RsaKeyLoader(RsaKeyProperties classpathKeys,
@@ -89,7 +89,7 @@ public class RsaKeyLoader {
     RsaKeyLoader(RsaKeyProperties classpathKeys,
                  String activeProfiles,
                  String configuredSigningKeyId,
-<span class="fc" id="L92">                 Function&lt;String, String&gt; getenv) {</span>
+<span class="fc" id="L92">                 UnaryOperator&lt;String&gt; getenv) {</span>
 <span class="fc" id="L93">        this.classpathKeys           = classpathKeys;</span>
 <span class="fc" id="L94">        this.activeProfiles          = activeProfiles;</span>
 <span class="fc" id="L95">        this.configuredSigningKeyId  = configuredSigningKeyId;</span>
@@ -164,14 +164,12 @@ public class RsaKeyLoader {
             }
 <span class="fc" id="L165">            return classpathPublic;</span>
         }
-<span class="pc bpc" id="L167" title="2 of 4 branches missed.">        if (classpathPublic != null &amp;&amp; classpathPrivate == null) {</span>
-<span class="pc bpc" id="L168" title="1 of 2 branches missed.">            if (log.isWarnEnabled()) {</span>
-<span class="fc" id="L169">                log.warn(&quot;SECURITY WARNING: Only a classpath public key is configured (no private key). &quot;</span>
-                        + &quot;Generating an ephemeral dev keypair so JWT signing works. &quot;
-                        + &quot;Tokens will be invalid after restart.&quot;);
-            }
+<span class="pc bpc" id="L167" title="3 of 6 branches missed.">        if (classpathPublic != null &amp;&amp; classpathPrivate == null &amp;&amp; log.isWarnEnabled()) {</span>
+<span class="fc" id="L168">            log.warn(&quot;SECURITY WARNING: Only a classpath public key is configured (no private key). &quot;</span>
+                    + &quot;Generating an ephemeral dev keypair so JWT signing works. &quot;
+                    + &quot;Tokens will be invalid after restart.&quot;);
         }
-<span class="fc" id="L174">        return (RSAPublicKey) devKeyPair().getPublic();</span>
+<span class="fc" id="L172">        return (RSAPublicKey) devKeyPair().getPublic();</span>
     }
 
     /**
@@ -180,49 +178,49 @@ public class RsaKeyLoader {
      * @throws IllegalStateException in production if no env-var key is configured
      */
     public RSAPrivateKey privateKey() {
-<span class="fc" id="L183">        String pem = getenv.apply(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
-<span class="pc bpc" id="L184" title="3 of 4 branches missed.">        if (pem != null &amp;&amp; !pem.isBlank()) {</span>
-<span class="nc" id="L185">            return parsePrivateKey(pem);</span>
+<span class="fc" id="L181">        String pem = getenv.apply(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
+<span class="pc bpc" id="L182" title="3 of 4 branches missed.">        if (pem != null &amp;&amp; !pem.isBlank()) {</span>
+<span class="nc" id="L183">            return parsePrivateKey(pem);</span>
         }
-<span class="fc bfc" id="L187" title="All 2 branches covered.">        if (isProductionProfile()) {</span>
-<span class="nc" id="L188">            guardClasspathUsage(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        if (isProductionProfile()) {</span>
+<span class="nc" id="L186">            guardClasspathUsage(&quot;RSA_PRIVATE_KEY_PEM&quot;);</span>
         }
-<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        RSAPublicKey classpathPublic = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;</span>
-<span class="pc bpc" id="L191" title="1 of 2 branches missed.">        RSAPrivateKey classpathPrivate = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;</span>
-<span class="pc bpc" id="L192" title="1 of 4 branches missed.">        if (classpathPublic != null &amp;&amp; classpathPrivate != null) {</span>
-<span class="pc bpc" id="L193" title="1 of 2 branches missed.">            if (log.isWarnEnabled()) {</span>
-<span class="fc" id="L194">                log.warn(&quot;SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set. Using bundled classpath keypair. {}&quot;,</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        RSAPublicKey classpathPublic = classpathKeys != null ? classpathKeys.rsaPublicKey() : null;</span>
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">        RSAPrivateKey classpathPrivate = classpathKeys != null ? classpathKeys.rsaPrivateKey() : null;</span>
+<span class="pc bpc" id="L190" title="1 of 4 branches missed.">        if (classpathPublic != null &amp;&amp; classpathPrivate != null) {</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">            if (log.isWarnEnabled()) {</span>
+<span class="fc" id="L192">                log.warn(&quot;SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set. Using bundled classpath keypair. {}&quot;,</span>
                         LOCAL_DEV_ONLY_NEVER_PROD);
             }
-<span class="fc" id="L197">            return classpathPrivate;</span>
+<span class="fc" id="L195">            return classpathPrivate;</span>
         }
-<span class="pc bpc" id="L199" title="1 of 2 branches missed.">        if (log.isWarnEnabled()) {</span>
-<span class="fc" id="L200">            log.warn(&quot;SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set and no classpath private key is configured. &quot;</span>
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">        if (log.isWarnEnabled()) {</span>
+<span class="fc" id="L198">            log.warn(&quot;SECURITY WARNING: RSA_PRIVATE_KEY_PEM is not set and no classpath private key is configured. &quot;</span>
                     + &quot;Generating an ephemeral dev keypair for this JVM. Tokens will be invalid after restart.&quot;);
         }
-<span class="fc" id="L203">        return (RSAPrivateKey) devKeyPair().getPrivate();</span>
+<span class="fc" id="L201">        return (RSAPrivateKey) devKeyPair().getPrivate();</span>
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private KeyPair devKeyPair() {
-<span class="fc" id="L209">        KeyPair current = generatedDevKeyPair.get();</span>
-<span class="fc bfc" id="L210" title="All 2 branches covered.">        if (current != null) {</span>
-<span class="fc" id="L211">            return current;</span>
+<span class="fc" id="L207">        KeyPair current = generatedDevKeyPair.get();</span>
+<span class="fc bfc" id="L208" title="All 2 branches covered.">        if (current != null) {</span>
+<span class="fc" id="L209">            return current;</span>
         }
-<span class="fc" id="L213">        synchronized (this) {</span>
-<span class="fc" id="L214">            KeyPair existing = generatedDevKeyPair.get();</span>
-<span class="pc bpc" id="L215" title="1 of 2 branches missed.">            if (existing != null) {</span>
-<span class="nc" id="L216">                return existing;</span>
+<span class="fc" id="L211">        synchronized (this) {</span>
+<span class="fc" id="L212">            KeyPair existing = generatedDevKeyPair.get();</span>
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">            if (existing != null) {</span>
+<span class="nc" id="L214">                return existing;</span>
             }
             try {
-<span class="fc" id="L219">                KeyPairGenerator g = KeyPairGenerator.getInstance(&quot;RSA&quot;);</span>
-<span class="fc" id="L220">                g.initialize(2048);</span>
-<span class="fc" id="L221">                KeyPair pair = g.generateKeyPair();</span>
-<span class="fc" id="L222">                generatedDevKeyPair.set(pair);</span>
-<span class="fc" id="L223">                return pair;</span>
-<span class="nc" id="L224">            } catch (Exception e) {</span>
-<span class="nc" id="L225">                throw new IllegalStateException(&quot;Failed to generate ephemeral RSA keypair: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L217">                KeyPairGenerator g = KeyPairGenerator.getInstance(&quot;RSA&quot;);</span>
+<span class="fc" id="L218">                g.initialize(2048);</span>
+<span class="fc" id="L219">                KeyPair pair = g.generateKeyPair();</span>
+<span class="fc" id="L220">                generatedDevKeyPair.set(pair);</span>
+<span class="fc" id="L221">                return pair;</span>
+<span class="nc" id="L222">            } catch (Exception e) {</span>
+<span class="nc" id="L223">                throw new IllegalStateException(&quot;Failed to generate ephemeral RSA keypair: &quot; + e.getMessage(), e);</span>
             }
         }
     }
@@ -232,21 +230,21 @@ public class RsaKeyLoader {
      * In other profiles, logs a prominent security warning instead.
      */
     private void guardClasspathUsage(String envVarName) {
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (isProductionProfile()) {</span>
-<span class="fc" id="L236">            throw new IllegalStateException(</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if (isProductionProfile()) {</span>
+<span class="fc" id="L234">            throw new IllegalStateException(</span>
                     &quot;SECURITY VIOLATION: JWT signing key '&quot; + envVarName + &quot;' must be supplied &quot;
                     + &quot;as an environment variable in the 'prod' profile. &quot;
                     + &quot;Classpath/bundled keys are forbidden in production — they allow anyone &quot;
                     + &quot;with image access to forge tokens with any role.&quot;);
         }
-<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (log.isWarnEnabled()) {</span>
-<span class="nc" id="L243">            log.warn(&quot;SECURITY WARNING: {} is not set. Using bundled classpath key. {}&quot;,</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (log.isWarnEnabled()) {</span>
+<span class="nc" id="L241">            log.warn(&quot;SECURITY WARNING: {} is not set. Using bundled classpath key. {}&quot;,</span>
                     envVarName, LOCAL_DEV_ONLY_NEVER_PROD);
         }
-<span class="nc" id="L246">    }</span>
+<span class="nc" id="L244">    }</span>
 
     private boolean isProductionProfile() {
-<span class="pc bpc" id="L249" title="1 of 4 branches missed.">        return activeProfiles != null &amp;&amp; activeProfiles.contains(&quot;prod&quot;);</span>
+<span class="pc bpc" id="L247" title="1 of 4 branches missed.">        return activeProfiles != null &amp;&amp; activeProfiles.contains(&quot;prod&quot;);</span>
     }
 
     /**
@@ -256,13 +254,13 @@ public class RsaKeyLoader {
      */
     private static RSAPublicKey parsePublicKey(String pem) {
         try {
-<span class="fc" id="L259">            String base64 = stripPemHeaders(pem);</span>
-<span class="fc" id="L260">            byte[] der = Base64.getDecoder().decode(base64);</span>
-<span class="fc" id="L261">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
-<span class="fc" id="L262">            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));</span>
-<span class="nc" id="L263">        } catch (Exception e) {</span>
-<span class="nc" id="L264">            throw new IllegalStateException(</span>
-<span class="nc" id="L265">                    &quot;Failed to parse RSA public key from RSA_PUBLIC_KEY_PEM: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L257">            String base64 = stripPemHeaders(pem);</span>
+<span class="fc" id="L258">            byte[] der = Base64.getDecoder().decode(base64);</span>
+<span class="fc" id="L259">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="fc" id="L260">            return (RSAPublicKey) kf.generatePublic(new X509EncodedKeySpec(der));</span>
+<span class="nc" id="L261">        } catch (Exception e) {</span>
+<span class="nc" id="L262">            throw new IllegalStateException(</span>
+<span class="nc" id="L263">                    &quot;Failed to parse RSA public key from RSA_PUBLIC_KEY_PEM: &quot; + e.getMessage(), e);</span>
         }
     }
 
@@ -273,13 +271,13 @@ public class RsaKeyLoader {
      */
     private static RSAPrivateKey parsePrivateKey(String pem) {
         try {
-<span class="nc" id="L276">            String base64 = stripPemHeaders(pem);</span>
-<span class="nc" id="L277">            byte[] der = Base64.getDecoder().decode(base64);</span>
-<span class="nc" id="L278">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
-<span class="nc" id="L279">            return (RSAPrivateKey) kf.generatePrivate(new PKCS8EncodedKeySpec(der));</span>
-<span class="nc" id="L280">        } catch (Exception e) {</span>
-<span class="nc" id="L281">            throw new IllegalStateException(</span>
-<span class="nc" id="L282">                    &quot;Failed to parse RSA private key from RSA_PRIVATE_KEY_PEM: &quot; + e.getMessage(), e);</span>
+<span class="nc" id="L274">            String base64 = stripPemHeaders(pem);</span>
+<span class="nc" id="L275">            byte[] der = Base64.getDecoder().decode(base64);</span>
+<span class="nc" id="L276">            KeyFactory kf = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="nc" id="L277">            return (RSAPrivateKey) kf.generatePrivate(new PKCS8EncodedKeySpec(der));</span>
+<span class="nc" id="L278">        } catch (Exception e) {</span>
+<span class="nc" id="L279">            throw new IllegalStateException(</span>
+<span class="nc" id="L280">                    &quot;Failed to parse RSA private key from RSA_PRIVATE_KEY_PEM: &quot; + e.getMessage(), e);</span>
         }
     }
 
@@ -287,10 +285,10 @@ public class RsaKeyLoader {
      * Removes PEM header/footer lines and all whitespace to produce a raw base64 string.
      */
     private static String stripPemHeaders(String pem) {
-<span class="fc" id="L290">        return pem</span>
-<span class="fc" id="L291">                .replaceAll(&quot;-----BEGIN[^-]*-----&quot;, &quot;&quot;)</span>
-<span class="fc" id="L292">                .replaceAll(&quot;-----END[^-]*-----&quot;, &quot;&quot;)</span>
-<span class="fc" id="L293">                .replaceAll(&quot;\\s&quot;, &quot;&quot;);</span>
+<span class="fc" id="L288">        return pem</span>
+<span class="fc" id="L289">                .replaceAll(&quot;-----BEGIN[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="fc" id="L290">                .replaceAll(&quot;-----END[^-]*-----&quot;, &quot;&quot;)</span>
+<span class="fc" id="L291">                .replaceAll(&quot;\\s&quot;, &quot;&quot;);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

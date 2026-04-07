@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,7 +42,15 @@ class AuditAspectTest {
     void setUp() {
         when(ipResolver.resolveFromContext()).thenReturn(null);
         when(auditLogRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        AuditService realAuditService = new AuditService(auditLogRepo, ipResolver);
+        AuditService[] svc = new AuditService[1];
+        ObjectProvider<AuditService> selfProvider = new ObjectProvider<>() {
+            @Override
+            public AuditService getObject() {
+                return svc[0];
+            }
+        };
+        svc[0] = new AuditService(auditLogRepo, ipResolver, selfProvider);
+        AuditService realAuditService = svc[0];
         aspect = new AuditAspect(realAuditService);
     }
 

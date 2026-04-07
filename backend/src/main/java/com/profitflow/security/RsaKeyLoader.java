@@ -18,7 +18,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Loads the RSA key pair used to sign and verify JWTs.
@@ -76,7 +76,7 @@ public class RsaKeyLoader {
     /** {@code kid} claim for access tokens signed with the current private key. */
     private final String configuredSigningKeyId;
 
-    private final Function<String, String> getenv;
+    private final UnaryOperator<String> getenv;
 
     @Autowired
     public RsaKeyLoader(RsaKeyProperties classpathKeys,
@@ -89,7 +89,7 @@ public class RsaKeyLoader {
     RsaKeyLoader(RsaKeyProperties classpathKeys,
                  String activeProfiles,
                  String configuredSigningKeyId,
-                 Function<String, String> getenv) {
+                 UnaryOperator<String> getenv) {
         this.classpathKeys           = classpathKeys;
         this.activeProfiles          = activeProfiles;
         this.configuredSigningKeyId  = configuredSigningKeyId;
@@ -164,12 +164,10 @@ public class RsaKeyLoader {
             }
             return classpathPublic;
         }
-        if (classpathPublic != null && classpathPrivate == null) {
-            if (log.isWarnEnabled()) {
-                log.warn("SECURITY WARNING: Only a classpath public key is configured (no private key). "
-                        + "Generating an ephemeral dev keypair so JWT signing works. "
-                        + "Tokens will be invalid after restart.");
-            }
+        if (classpathPublic != null && classpathPrivate == null && log.isWarnEnabled()) {
+            log.warn("SECURITY WARNING: Only a classpath public key is configured (no private key). "
+                    + "Generating an ephemeral dev keypair so JWT signing works. "
+                    + "Tokens will be invalid after restart.");
         }
         return (RSAPublicKey) devKeyPair().getPublic();
     }

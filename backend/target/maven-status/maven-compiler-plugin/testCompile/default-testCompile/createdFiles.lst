@@ -30,6 +30,7 @@ com/profitflow/security/RsaKeyLoaderTest.class
 com/profitflow/adapter/out/persistence/PersistenceMapperTest.class
 com/profitflow/adapter/out/persistence/DomainEventOutboxProcessorTest.class
 com/profitflow/security/AuditServiceTest.class
+com/profitflow/security/AuditServiceTest$1.class
 com/profitflow/adapter/out/persistence/AllocationRulePersistenceAdapterTest.class
 com/profitflow/security/RefreshTokenServiceTest.class
 com/profitflow/security/AuditAspectTest$3DomainEntity.class
@@ -58,6 +59,7 @@ com/profitflow/adapter/out/ai/MockAiAllocatorAdapterTest.class
 com/profitflow/security/RevokedTokenValidatorTest.class
 com/profitflow/adapter/in/web/AuthControllerTest.class
 com/profitflow/security/RateLimitingFilterTest$1.class
+com/profitflow/security/AuditAspectTest$2.class
 com/profitflow/application/service/ResourceCostServiceTest.class
 com/profitflow/adapter/out/ai/ResilientAiAllocatorDecoratorTest.class
 com/profitflow/adapter/in/web/ApiVersionResponseHeaderFilterTest.class

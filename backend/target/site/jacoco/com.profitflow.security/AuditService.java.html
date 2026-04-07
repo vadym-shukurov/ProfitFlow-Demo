@@ -5,6 +5,7 @@ import com.profitflow.adapter.out.persistence.jpa.AuditLogEntityRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -35,16 +36,19 @@ import java.util.UUID;
 @Service
 public class AuditService {
 
-<span class="fc" id="L38">    private static final Logger log = LoggerFactory.getLogger(AuditService.class);</span>
+<span class="fc" id="L39">    private static final Logger log = LoggerFactory.getLogger(AuditService.class);</span>
 
     private final AuditLogEntityRepository auditLogRepo;
     private final ClientIpResolverPort     clientIpResolver;
+    private final ObjectProvider&lt;AuditService&gt; selfProvider;
 
     public AuditService(AuditLogEntityRepository auditLogRepo,
-<span class="fc" id="L44">                        ClientIpResolverPort clientIpResolver) {</span>
-<span class="fc" id="L45">        this.auditLogRepo    = auditLogRepo;</span>
-<span class="fc" id="L46">        this.clientIpResolver = clientIpResolver;</span>
-<span class="fc" id="L47">    }</span>
+                        ClientIpResolverPort clientIpResolver,
+<span class="fc" id="L47">                        ObjectProvider&lt;AuditService&gt; selfProvider) {</span>
+<span class="fc" id="L48">        this.auditLogRepo    = auditLogRepo;</span>
+<span class="fc" id="L49">        this.clientIpResolver = clientIpResolver;</span>
+<span class="fc" id="L50">        this.selfProvider     = selfProvider;</span>
+<span class="fc" id="L51">    }</span>
 
     /**
      * Records a completed operation — best-effort. Swallows DB exceptions so
@@ -58,18 +62,19 @@ public class AuditService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordAudit(String action, String entityType, String entityId, String details) {
         try {
-<span class="fc" id="L61">            persist(action, entityType, entityId, details);</span>
-<span class="fc" id="L62">        } catch (Exception ex) {</span>
-<span class="fc" id="L63">            log.error(&quot;AUDIT_WRITE_FAILED action={} correlationId={}: {}&quot;,</span>
-<span class="fc" id="L64">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
-<span class="fc" id="L65">        }</span>
-<span class="fc" id="L66">    }</span>
+<span class="fc" id="L65">            persist(action, entityType, entityId, details);</span>
+<span class="fc" id="L66">        } catch (Exception ex) {</span>
+<span class="fc" id="L67">            log.error(&quot;AUDIT_WRITE_FAILED action={} correlationId={}: {}&quot;,</span>
+<span class="fc" id="L68">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
+<span class="fc" id="L69">        }</span>
+<span class="fc" id="L70">    }</span>
 
     @SuppressWarnings(&quot;java:S6213&quot;)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(String action, String entityType, String entityId, String details) {
-<span class="fc" id="L71">        recordAudit(action, entityType, entityId, details);</span>
-<span class="fc" id="L72">    }</span>
+        // Ensure the REQUIRES_NEW boundary is applied via the Spring proxy (Sonar java:S6809).
+<span class="fc" id="L76">        selfProvider.getObject().recordAudit(action, entityType, entityId, details);</span>
+<span class="fc" id="L77">    }</span>
 
     /**
      * Records a privileged operation — fail-hard. Throws if the audit entry
@@ -84,50 +89,50 @@ public class AuditService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordCritical(String action, String entityType, String entityId, String details) {
         try {
-<span class="fc" id="L87">            persist(action, entityType, entityId, details);</span>
-<span class="fc" id="L88">        } catch (Exception ex) {</span>
-<span class="fc" id="L89">            String msg = String.format(</span>
+<span class="fc" id="L92">            persist(action, entityType, entityId, details);</span>
+<span class="fc" id="L93">        } catch (Exception ex) {</span>
+<span class="fc" id="L94">            String msg = String.format(</span>
                     &quot;CRITICAL_AUDIT_WRITE_FAILED action=%s correlationId=%s: %s&quot;,
-<span class="fc" id="L91">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
-<span class="fc" id="L92">            log.error(msg);</span>
-<span class="fc" id="L93">            throw new AuditWriteException(msg, ex);</span>
-<span class="fc" id="L94">        }</span>
-<span class="fc" id="L95">    }</span>
+<span class="fc" id="L96">                    action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());</span>
+<span class="fc" id="L97">            log.error(msg);</span>
+<span class="fc" id="L98">            throw new AuditWriteException(msg, ex);</span>
+<span class="fc" id="L99">        }</span>
+<span class="fc" id="L100">    }</span>
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private void persist(String action, String entityType, String entityId, String details) {
-<span class="fc" id="L100">        String username      = resolveUsername();</span>
-<span class="fc" id="L101">        String ip            = clientIpResolver.resolveFromContext();</span>
-<span class="fc" id="L102">        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
+<span class="fc" id="L105">        String username      = resolveUsername();</span>
+<span class="fc" id="L106">        String ip            = clientIpResolver.resolveFromContext();</span>
+<span class="fc" id="L107">        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);</span>
 
-<span class="fc" id="L104">        AuditLogEntity entry = new AuditLogEntity(</span>
-<span class="fc" id="L105">                UUID.randomUUID(),</span>
-<span class="fc" id="L106">                Instant.now(),</span>
+<span class="fc" id="L109">        AuditLogEntity entry = new AuditLogEntity(</span>
+<span class="fc" id="L110">                UUID.randomUUID(),</span>
+<span class="fc" id="L111">                Instant.now(),</span>
                 username,
                 ip,
                 action,
                 entityType,
                 entityId,
-<span class="fc" id="L112">                truncate(details, 2000),</span>
+<span class="fc" id="L117">                truncate(details, 2000),</span>
                 correlationId);
 
-<span class="fc" id="L115">        auditLogRepo.save(entry);</span>
-<span class="fc" id="L116">    }</span>
+<span class="fc" id="L120">        auditLogRepo.save(entry);</span>
+<span class="fc" id="L121">    }</span>
 
     private static String resolveUsername() {
-<span class="fc" id="L119">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
-<span class="pc bpc" id="L120" title="1 of 4 branches missed.">        if (auth != null &amp;&amp; auth.isAuthenticated()) {</span>
-<span class="fc" id="L121">            return auth.getName();</span>
+<span class="fc" id="L124">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L125" title="1 of 4 branches missed.">        if (auth != null &amp;&amp; auth.isAuthenticated()) {</span>
+<span class="fc" id="L126">            return auth.getName();</span>
         }
-<span class="fc" id="L123">        return &quot;ANONYMOUS&quot;;</span>
+<span class="fc" id="L128">        return &quot;ANONYMOUS&quot;;</span>
     }
 
     private static String truncate(String s, int maxLength) {
-<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (s == null) {</span>
-<span class="fc" id="L128">            return null;</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (s == null) {</span>
+<span class="fc" id="L133">            return null;</span>
         }
-<span class="fc bfc" id="L130" title="All 2 branches covered.">        return s.length() &lt;= maxLength ? s : s.substring(0, maxLength - 3) + &quot;...&quot;;</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        return s.length() &lt;= maxLength ? s : s.substring(0, maxLength - 3) + &quot;...&quot;;</span>
     }
 
     // ── Exception types ───────────────────────────────────────────────────────
@@ -135,8 +140,8 @@ public class AuditService {
     /** Thrown by {@link #recordCritical} when an audit entry cannot be persisted. */
     public static class AuditWriteException extends RuntimeException {
         public AuditWriteException(String message, Throwable cause) {
-<span class="fc" id="L138">            super(message, cause);</span>
-<span class="fc" id="L139">        }</span>
+<span class="fc" id="L143">            super(message, cause);</span>
+<span class="fc" id="L144">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

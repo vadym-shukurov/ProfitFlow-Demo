@@ -184,7 +184,11 @@ export class AllocationRulesStore {
       const row = rows[i] as Record<string, unknown>;
       for (const field of idFields) {
         const rawValue = row[field];
-        const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
+        const value =
+          rawValue == null ? '' :
+            typeof rawValue === 'string' ? rawValue :
+              typeof rawValue === 'number' || typeof rawValue === 'boolean' ? String(rawValue) :
+                '';
         if (value.trim() === '') {
           return `Row ${i + 1}: please select a value for "${field}".`;
         }

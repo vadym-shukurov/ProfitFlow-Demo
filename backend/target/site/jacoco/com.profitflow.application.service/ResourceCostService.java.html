@@ -222,8 +222,8 @@ public class ResourceCostService implements ResourceCostUseCase {
     }
 
     /** Returns {@code true} if the record looks like a CSV header row. */
-    private static boolean isHeaderRecord(CSVRecord record) {
-<span class="pc bpc" id="L226" title="1 of 4 branches missed.">        return record.size() &gt; 0 &amp;&amp; record.get(0).toLowerCase().contains(&quot;label&quot;);</span>
+    private static boolean isHeaderRecord(CSVRecord csvRecord) {
+<span class="pc bpc" id="L226" title="1 of 4 branches missed.">        return csvRecord.size() &gt; 0 &amp;&amp; csvRecord.get(0).toLowerCase().contains(&quot;label&quot;);</span>
     }
 
     private static BigDecimal parseAmount(int rowNumber, String rawAmount) {

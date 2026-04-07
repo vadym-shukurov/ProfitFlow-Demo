@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +37,14 @@ class AuditServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuditService(repo, ipResolver);
+        final ObjectProvider<AuditService>[] holder = new ObjectProvider[1];
+        holder[0] = new ObjectProvider<>() {
+            @Override
+            public AuditService getObject() {
+                return service;
+            }
+        };
+        service = new AuditService(repo, ipResolver, holder[0]);
         // Default: no active request context → IP resolver returns null
         when(ipResolver.resolveFromContext()).thenReturn(null);
         // Clear security context between tests

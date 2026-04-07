@@ -5,6 +5,7 @@ import com.profitflow.adapter.out.persistence.jpa.AuditLogEntityRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,11 +40,14 @@ public class AuditService {
 
     private final AuditLogEntityRepository auditLogRepo;
     private final ClientIpResolverPort     clientIpResolver;
+    private final ObjectProvider<AuditService> selfProvider;
 
     public AuditService(AuditLogEntityRepository auditLogRepo,
-                        ClientIpResolverPort clientIpResolver) {
+                        ClientIpResolverPort clientIpResolver,
+                        ObjectProvider<AuditService> selfProvider) {
         this.auditLogRepo    = auditLogRepo;
         this.clientIpResolver = clientIpResolver;
+        this.selfProvider     = selfProvider;
     }
 
     /**
@@ -68,7 +72,8 @@ public class AuditService {
     @SuppressWarnings("java:S6213")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(String action, String entityType, String entityId, String details) {
-        recordAudit(action, entityType, entityId, details);
+        // Ensure the REQUIRES_NEW boundary is applied via the Spring proxy (Sonar java:S6809).
+        selfProvider.getObject().recordAudit(action, entityType, entityId, details);
     }
 
     /**
