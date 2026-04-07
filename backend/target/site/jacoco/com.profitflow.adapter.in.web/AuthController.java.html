@@ -57,6 +57,8 @@ import java.util.stream.Collectors;
 @RequestMapping(&quot;/api/v1/auth&quot;)
 public class AuthController {
 
+    private static final String AUTHENTICATION_FAILED_MESSAGE = &quot;Authentication failed.&quot;;
+
     private final AuthenticationManager  authManager;
     private final JwtTokenService        jwtTokenService;
     private final RefreshTokenService    refreshTokenService;
@@ -71,15 +73,15 @@ public class AuthController {
                           TokenRevocationService tokenRevocationService,
                           AppUserDetailsService userDetailsService,
                           UserLockoutPort userLockout,
-<span class="fc" id="L74">                          BusinessMetricsPort metrics) {</span>
-<span class="fc" id="L75">        this.authManager            = authManager;</span>
-<span class="fc" id="L76">        this.jwtTokenService        = jwtTokenService;</span>
-<span class="fc" id="L77">        this.refreshTokenService    = refreshTokenService;</span>
-<span class="fc" id="L78">        this.tokenRevocationService = tokenRevocationService;</span>
-<span class="fc" id="L79">        this.userDetailsService     = userDetailsService;</span>
-<span class="fc" id="L80">        this.userLockout            = userLockout;</span>
-<span class="fc" id="L81">        this.metrics                = metrics;</span>
-<span class="fc" id="L82">    }</span>
+<span class="fc" id="L76">                          BusinessMetricsPort metrics) {</span>
+<span class="fc" id="L77">        this.authManager            = authManager;</span>
+<span class="fc" id="L78">        this.jwtTokenService        = jwtTokenService;</span>
+<span class="fc" id="L79">        this.refreshTokenService    = refreshTokenService;</span>
+<span class="fc" id="L80">        this.tokenRevocationService = tokenRevocationService;</span>
+<span class="fc" id="L81">        this.userDetailsService     = userDetailsService;</span>
+<span class="fc" id="L82">        this.userLockout            = userLockout;</span>
+<span class="fc" id="L83">        this.metrics                = metrics;</span>
+<span class="fc" id="L84">    }</span>
 
     /**
      * Authenticates a user and returns an access token + refresh token.
@@ -88,45 +90,42 @@ public class AuthController {
      * @return 200 with token pair, or 401 on any failure (including lockout)
      */
     @PostMapping(&quot;/login&quot;)
-    public ResponseEntity&lt;?&gt; login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity&lt;Object&gt; login(@Valid @RequestBody LoginRequest request) {
         try {
-<span class="fc" id="L93">            Authentication auth = authManager.authenticate(</span>
+<span class="fc" id="L95">            Authentication auth = authManager.authenticate(</span>
                     new UsernamePasswordAuthenticationToken(
-<span class="fc" id="L95">                            request.username(), request.password()));</span>
+<span class="fc" id="L97">                            request.username(), request.password()));</span>
 
-<span class="fc" id="L97">            userLockout.recordSuccessfulLogin(request.username());</span>
+<span class="fc" id="L99">            userLockout.recordSuccessfulLogin(request.username());</span>
 
-<span class="fc" id="L99">            String accessToken   = jwtTokenService.generateToken(auth);</span>
-<span class="fc" id="L100">            String refreshToken  = refreshTokenService.issue(auth.getName());</span>
-<span class="fc" id="L101">            String roles = auth.getAuthorities().stream()</span>
-<span class="fc" id="L102">                    .map(GrantedAuthority::getAuthority)</span>
-<span class="fc" id="L103">                    .collect(Collectors.joining(&quot;,&quot;));</span>
+<span class="fc" id="L101">            String accessToken   = jwtTokenService.generateToken(auth);</span>
+<span class="fc" id="L102">            String refreshToken  = refreshTokenService.issue(auth.getName());</span>
+<span class="fc" id="L103">            String roles = auth.getAuthorities().stream()</span>
+<span class="fc" id="L104">                    .map(GrantedAuthority::getAuthority)</span>
+<span class="fc" id="L105">                    .collect(Collectors.joining(&quot;,&quot;));</span>
 
-<span class="fc" id="L105">            metrics.recordLoginSuccess();</span>
-<span class="fc" id="L106">            return ResponseEntity.ok(new AuthResponse(</span>
+<span class="fc" id="L107">            metrics.recordLoginSuccess();</span>
+<span class="fc" id="L108">            return ResponseEntity.ok(new AuthResponse(</span>
                     accessToken,
                     refreshToken,
                     &quot;Bearer&quot;,
                     JwtTokenService.ACCESS_TOKEN_TTL_MINUTES * 60,
-<span class="fc" id="L111">                    auth.getName(),</span>
+<span class="fc" id="L113">                    auth.getName(),</span>
                     roles));
 
-<span class="fc" id="L114">        } catch (LockedException ex) {</span>
-<span class="fc" id="L115">            metrics.recordLoginLocked();</span>
+<span class="fc" id="L116">        } catch (LockedException ex) {</span>
+<span class="fc" id="L117">            metrics.recordLoginLocked();</span>
             // Return 401 — same as bad credentials — to prevent lock-state enumeration
-<span class="fc" id="L117">            return ResponseEntity.status(401)</span>
-<span class="fc" id="L118">                    .body(new ApiErrorResponse(&quot;Authentication failed.&quot;));</span>
+<span class="fc" id="L119">            return authFailed();</span>
 
-<span class="fc" id="L120">        } catch (BadCredentialsException ex) {</span>
-<span class="fc" id="L121">            userLockout.recordFailedLogin(request.username());</span>
-<span class="fc" id="L122">            metrics.recordLoginFailure();</span>
-<span class="fc" id="L123">            return ResponseEntity.status(401)</span>
-<span class="fc" id="L124">                    .body(new ApiErrorResponse(&quot;Authentication failed.&quot;));</span>
+<span class="fc" id="L121">        } catch (BadCredentialsException ex) {</span>
+<span class="fc" id="L122">            userLockout.recordFailedLogin(request.username());</span>
+<span class="fc" id="L123">            metrics.recordLoginFailure();</span>
+<span class="fc" id="L124">            return authFailed();</span>
 
 <span class="nc" id="L126">        } catch (AuthenticationException ex) {</span>
 <span class="nc" id="L127">            metrics.recordLoginFailure();</span>
-<span class="nc" id="L128">            return ResponseEntity.status(401)</span>
-<span class="nc" id="L129">                    .body(new ApiErrorResponse(&quot;Authentication failed.&quot;));</span>
+<span class="nc" id="L128">            return authFailed();</span>
         }
     }
 
@@ -140,35 +139,33 @@ public class AuthController {
      * @return 200 with new token pair, or 401 if the refresh token is invalid
      */
     @PostMapping(&quot;/refresh&quot;)
-    public ResponseEntity&lt;?&gt; refresh(@Valid @RequestBody RefreshRequest request) {
-<span class="fc" id="L144">        RefreshTokenService.RotationResult result =</span>
-<span class="fc" id="L145">                refreshTokenService.rotate(request.refreshToken());</span>
+    public ResponseEntity&lt;Object&gt; refresh(@Valid @RequestBody RefreshRequest request) {
+<span class="fc" id="L143">        RefreshTokenService.RotationResult result =</span>
+<span class="fc" id="L144">                refreshTokenService.rotate(request.refreshToken());</span>
 
-<span class="fc bfc" id="L147" title="All 2 branches covered.">        if (!result.valid()) {</span>
-<span class="fc" id="L148">            return ResponseEntity.status(401)</span>
-<span class="fc" id="L149">                    .body(new ApiErrorResponse(&quot;Authentication failed.&quot;));</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        if (!result.valid()) {</span>
+<span class="fc" id="L147">            return authFailed();</span>
         }
 
         // Re-load the user's current authorities (role may have changed since last login)
         try {
-<span class="fc" id="L154">            UserDetails userDetails = userDetailsService.loadUserByUsername(result.username());</span>
-<span class="fc" id="L155">            Authentication auth = new UsernamePasswordAuthenticationToken(</span>
-<span class="fc" id="L156">                    userDetails.getUsername(), null,</span>
-<span class="fc" id="L157">                    userDetails.getAuthorities());</span>
-<span class="fc" id="L158">            String accessToken = jwtTokenService.generateToken(auth);</span>
-<span class="fc" id="L159">            String roles = auth.getAuthorities().stream()</span>
-<span class="fc" id="L160">                    .map(GrantedAuthority::getAuthority)</span>
-<span class="fc" id="L161">                    .collect(Collectors.joining(&quot;,&quot;));</span>
-<span class="fc" id="L162">            return ResponseEntity.ok(new AuthResponse(</span>
+<span class="fc" id="L152">            UserDetails userDetails = userDetailsService.loadUserByUsername(result.username());</span>
+<span class="fc" id="L153">            Authentication auth = new UsernamePasswordAuthenticationToken(</span>
+<span class="fc" id="L154">                    userDetails.getUsername(), null,</span>
+<span class="fc" id="L155">                    userDetails.getAuthorities());</span>
+<span class="fc" id="L156">            String accessToken = jwtTokenService.generateToken(auth);</span>
+<span class="fc" id="L157">            String roles = auth.getAuthorities().stream()</span>
+<span class="fc" id="L158">                    .map(GrantedAuthority::getAuthority)</span>
+<span class="fc" id="L159">                    .collect(Collectors.joining(&quot;,&quot;));</span>
+<span class="fc" id="L160">            return ResponseEntity.ok(new AuthResponse(</span>
                     accessToken,
-<span class="fc" id="L164">                    result.newRawToken(),</span>
+<span class="fc" id="L162">                    result.newRawToken(),</span>
                     &quot;Bearer&quot;,
                     JwtTokenService.ACCESS_TOKEN_TTL_MINUTES * 60,
-<span class="fc" id="L167">                    userDetails.getUsername(),</span>
+<span class="fc" id="L165">                    userDetails.getUsername(),</span>
                     roles));
-<span class="nc" id="L169">        } catch (Exception ex) {</span>
-<span class="nc" id="L170">            return ResponseEntity.status(401)</span>
-<span class="nc" id="L171">                    .body(new ApiErrorResponse(&quot;Authentication failed.&quot;));</span>
+<span class="nc" id="L167">        } catch (Exception ex) {</span>
+<span class="nc" id="L168">            return authFailed();</span>
         }
     }
 
@@ -190,9 +187,9 @@ public class AuthController {
      */
     @PostMapping(&quot;/logout&quot;)
     public ResponseEntity&lt;Void&gt; logout(@Valid @RequestBody LogoutRequest request) {
-<span class="fc" id="L193">        refreshTokenService.revokeByRawToken(request.refreshToken());</span>
-<span class="fc" id="L194">        revokeCurrentAccessToken(&quot;LOGOUT&quot;);</span>
-<span class="fc" id="L195">        return ResponseEntity.noContent().build();</span>
+<span class="fc" id="L190">        refreshTokenService.revokeByRawToken(request.refreshToken());</span>
+<span class="fc" id="L191">        revokeCurrentAccessToken(&quot;LOGOUT&quot;);</span>
+<span class="fc" id="L192">        return ResponseEntity.noContent().build();</span>
     }
 
     /**
@@ -206,10 +203,10 @@ public class AuthController {
      */
     @PostMapping(&quot;/logout/all&quot;)
     public ResponseEntity&lt;Void&gt; logoutAll() {
-<span class="nc" id="L209">        String username = SecurityContextHolder.getContext().getAuthentication().getName();</span>
-<span class="nc" id="L210">        refreshTokenService.revokeAll(username);</span>
-<span class="nc" id="L211">        revokeCurrentAccessToken(&quot;LOGOUT_ALL&quot;);</span>
-<span class="nc" id="L212">        return ResponseEntity.noContent().build();</span>
+<span class="nc" id="L206">        String username = SecurityContextHolder.getContext().getAuthentication().getName();</span>
+<span class="nc" id="L207">        refreshTokenService.revokeAll(username);</span>
+<span class="nc" id="L208">        revokeCurrentAccessToken(&quot;LOGOUT_ALL&quot;);</span>
+<span class="nc" id="L209">        return ResponseEntity.noContent().build();</span>
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -219,33 +216,38 @@ public class AuthController {
      * so it is rejected immediately rather than waiting for its 15-minute natural expiry.
      */
     private void revokeCurrentAccessToken(String reason) {
-<span class="fc" id="L222">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
-<span class="pc bpc" id="L223" title="1 of 2 branches missed.">        if (auth instanceof JwtAuthenticationToken jwtAuth) {</span>
-<span class="fc" id="L224">            String  jti       = jwtAuth.getToken().getId();</span>
-<span class="fc" id="L225">            Instant expiresAt = jwtAuth.getToken().getExpiresAt();</span>
-<span class="fc" id="L226">            String  username  = jwtAuth.getName();</span>
-<span class="pc bpc" id="L227" title="3 of 4 branches missed.">            if (jti != null &amp;&amp; expiresAt != null) {</span>
-<span class="nc" id="L228">                tokenRevocationService.revoke(jti, expiresAt, username, reason);</span>
+<span class="fc" id="L219">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">        if (auth instanceof JwtAuthenticationToken jwtAuth) {</span>
+<span class="fc" id="L221">            String  jti       = jwtAuth.getToken().getId();</span>
+<span class="fc" id="L222">            Instant expiresAt = jwtAuth.getToken().getExpiresAt();</span>
+<span class="fc" id="L223">            String  username  = jwtAuth.getName();</span>
+<span class="pc bpc" id="L224" title="3 of 4 branches missed.">            if (jti != null &amp;&amp; expiresAt != null) {</span>
+<span class="nc" id="L225">                tokenRevocationService.revoke(jti, expiresAt, username, reason);</span>
             }
         }
-<span class="fc" id="L231">    }</span>
+<span class="fc" id="L228">    }</span>
+
+    private static ResponseEntity&lt;Object&gt; authFailed() {
+<span class="fc" id="L231">        return ResponseEntity.status(401)</span>
+<span class="fc" id="L232">                .body(new ApiErrorResponse(AUTHENTICATION_FAILED_MESSAGE));</span>
+    }
 
     // ── Inner record types ───────────────────────────────────────────────────
 
-<span class="fc" id="L235">    record LoginRequest(</span>
+<span class="fc" id="L237">    record LoginRequest(</span>
             @NotBlank @Size(max = 100) String username,
             @NotBlank @Size(max = 128) String password) {
     }
 
-<span class="fc" id="L240">    record RefreshRequest(</span>
+<span class="fc" id="L242">    record RefreshRequest(</span>
             @NotBlank @Size(max = 128) String refreshToken) {
     }
 
-<span class="fc" id="L244">    record LogoutRequest(</span>
+<span class="fc" id="L246">    record LogoutRequest(</span>
             @NotBlank @Size(max = 128) String refreshToken) {
     }
 
-<span class="fc" id="L248">    record AuthResponse(</span>
+<span class="fc" id="L250">    record AuthResponse(</span>
             String accessToken,
             String refreshToken,
             String tokenType,

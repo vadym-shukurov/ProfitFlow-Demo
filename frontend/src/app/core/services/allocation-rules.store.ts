@@ -183,12 +183,13 @@ export class AllocationRulesStore {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       for (const field of idFields) {
-        const val = row[field];
-        if (!val || String(val).trim() === '') {
+        const rawValue = row[field];
+        const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
+        if (value.trim() === '') {
           return `Row ${i + 1}: please select a value for "${field}".`;
         }
       }
-      if (!(Number(row['driverWeight']) > 0)) {
+      if (Number(row['driverWeight']) <= 0) {
         return `Row ${i + 1}: driver weight must be a positive number.`;
       }
     }

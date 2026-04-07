@@ -33,7 +33,6 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.Collection;
@@ -77,6 +76,10 @@ public class SecurityConfig {
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), "
             + "microphone=(), payment=(), usb=()";
 
+    private static final String ROLE_ADMIN = "ADMIN";
+    private static final String ROLE_ANALYST = "ANALYST";
+    private static final String ROLE_FINANCE_MANAGER = "FINANCE_MANAGER";
+
     private final RateLimitingFilter                 rateLimitingFilter;
     private final CorrelationIdFilter                correlationIdFilter;
     private final SensitiveApiCacheHeaderFilter      sensitiveApiCacheHeaderFilter;
@@ -109,12 +112,7 @@ public class SecurityConfig {
                         // Spring Security defaults to XOR-masked tokens (good for HTML forms),
                         // but SPAs and non-browser clients echo the raw token from the cookie/header.
                         // Without this handler, valid raw tokens are rejected as "Invalid CSRF token".
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        // Token bootstrap endpoints carry credentials/tokens in the request body,
-                        // not via ambient cookies, so CSRF protection does not add meaningful safety
-                        // here but does add client fragility. Keep the ignore list narrowly scoped.
-                        .ignoringRequestMatchers(
-                                new RegexRequestMatcher("^/api/v1/auth/(login|refresh)$", null)))
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 // ── Session management ──────────────────────────────────────
                 // Stateless JWT — no HttpSession for authentication state.
                 .sessionManagement(sm ->
@@ -166,33 +164,33 @@ public class SecurityConfig {
                     "/swagger-ui.html").permitAll();
         } else {
             auth.requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**",
-                    "/swagger-ui.html").hasRole("ADMIN");
+                    "/swagger-ui.html").hasRole(ROLE_ADMIN);
         }
         auth.requestMatchers("/actuator/health", "/actuator/info",
                 "/actuator/health/liveness",
                 "/actuator/health/readiness").permitAll();
         auth.requestMatchers("/actuator/prometheus", "/actuator/metrics",
-                "/actuator/caches").hasRole("ADMIN");
+                "/actuator/caches").hasRole(ROLE_ADMIN);
         auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout")
-                .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
+                .hasAnyRole(ROLE_ANALYST, ROLE_FINANCE_MANAGER, ROLE_ADMIN);
         auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout/all")
-                .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/admin/**").hasRole("ADMIN");
+                .hasAnyRole(ROLE_ANALYST, ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/admin/**").hasRole(ROLE_ADMIN);
         auth.requestMatchers(HttpMethod.GET, "/api/v1/**")
-                .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
+                .hasAnyRole(ROLE_ANALYST, ROLE_FINANCE_MANAGER, ROLE_ADMIN);
         auth.requestMatchers(HttpMethod.POST, "/api/v1/ai/suggest")
-                .hasAnyRole("ANALYST", "FINANCE_MANAGER", "ADMIN");
+                .hasAnyRole(ROLE_ANALYST, ROLE_FINANCE_MANAGER, ROLE_ADMIN);
         // Write operations: explicitly enumerate the API surface so auth endpoints can't
         // be accidentally captured by a broad "/api/v1/**" matcher.
-        auth.requestMatchers("/api/v1/activities/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/products/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/resource-costs/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/rules/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/allocations/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
-        auth.requestMatchers("/api/v1/ai/**").hasAnyRole("FINANCE_MANAGER", "ADMIN");
+        auth.requestMatchers("/api/v1/activities/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/products/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/resource-costs/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/rules/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/allocations/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
+        auth.requestMatchers("/api/v1/ai/**").hasAnyRole(ROLE_FINANCE_MANAGER, ROLE_ADMIN);
 
         // Authentication bootstrap endpoints must be reachable without a JWT.
-        auth.requestMatchers(new RegexRequestMatcher("^/api/v1/auth/(login|refresh)$", null))
+        auth.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh")
                 .permitAll();
         auth.anyRequest().denyAll();
     }
@@ -239,8 +237,8 @@ public class SecurityConfig {
         OAuth2TokenValidator<Jwt> issuerValidator =
                 JwtValidators.createDefaultWithIssuer(JwtTokenService.AUDIENCE);
         OAuth2TokenValidator<Jwt> audienceValidator =
-                new JwtClaimValidator<Collection<String>>("aud",
-                        aud -> aud != null && aud.contains(JwtTokenService.AUDIENCE));
+                new JwtClaimValidator<>("aud",
+                        (Collection<String> aud) -> aud != null && aud.contains(JwtTokenService.AUDIENCE));
         OAuth2TokenValidator<Jwt> revocationValidator =
                 new RevokedTokenValidator(revocationService);
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(

@@ -4,6 +4,7 @@ import com.profitflow.application.port.out.BusinessMetricsPort;
 import com.profitflow.application.port.out.RefreshTokenRepositoryPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,11 +52,14 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepositoryPort repository;
     private final BusinessMetricsPort        metrics;
+    private final ObjectProvider<RefreshTokenService> selfProvider;
 
     public RefreshTokenService(RefreshTokenRepositoryPort repository,
-                               BusinessMetricsPort metrics) {
+                               BusinessMetricsPort metrics,
+                               ObjectProvider<RefreshTokenService> selfProvider) {
         this.repository = repository;
         this.metrics    = metrics;
+        this.selfProvider = selfProvider;
     }
 
     /**
@@ -101,7 +105,8 @@ public class RefreshTokenService {
                         return RotationResult.invalid("Token expired");
                     }
                     repository.revoke(view.id(), "ROTATION");
-                    String newRawToken = issue(view.username());
+                    // Ensure @Transactional on issue(...) is invoked via the Spring proxy.
+                    String newRawToken = selfProvider.getObject().issue(view.username());
                     log.debug("Refresh token rotated for user={}", view.username());
                     return RotationResult.success(view.username(), newRawToken);
                 })

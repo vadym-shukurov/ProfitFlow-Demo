@@ -46,40 +46,42 @@ public class RefreshTokenEntity {
     @Column(name = &quot;revoked_reason&quot;, length = 100)
     private String revokedReason;
 
-<span class="nc" id="L49">    protected RefreshTokenEntity() {}</span>
+<span class="nc" id="L49">    protected RefreshTokenEntity() {</span>
+        // JPA / persistence adapter
+<span class="nc" id="L51">    }</span>
 
     public RefreshTokenEntity(UUID id, String tokenHash, String username,
-<span class="fc" id="L52">                              Instant issuedAt, Instant expiresAt) {</span>
-<span class="fc" id="L53">        this.id        = id;</span>
-<span class="fc" id="L54">        this.tokenHash = tokenHash;</span>
-<span class="fc" id="L55">        this.username  = username;</span>
-<span class="fc" id="L56">        this.issuedAt  = issuedAt;</span>
-<span class="fc" id="L57">        this.expiresAt = expiresAt;</span>
-<span class="fc" id="L58">        this.revoked   = false;</span>
-<span class="fc" id="L59">    }</span>
+<span class="fc" id="L54">                              Instant issuedAt, Instant expiresAt) {</span>
+<span class="fc" id="L55">        this.id        = id;</span>
+<span class="fc" id="L56">        this.tokenHash = tokenHash;</span>
+<span class="fc" id="L57">        this.username  = username;</span>
+<span class="fc" id="L58">        this.issuedAt  = issuedAt;</span>
+<span class="fc" id="L59">        this.expiresAt = expiresAt;</span>
+<span class="fc" id="L60">        this.revoked   = false;</span>
+<span class="fc" id="L61">    }</span>
 
     public UUID getId() {
-<span class="fc" id="L62">        return id;</span>
+<span class="fc" id="L64">        return id;</span>
     }
 
     public String getTokenHash() {
-<span class="fc" id="L66">        return tokenHash;</span>
+<span class="fc" id="L68">        return tokenHash;</span>
     }
 
     public String getUsername() {
-<span class="fc" id="L70">        return username;</span>
+<span class="fc" id="L72">        return username;</span>
     }
 
     public Instant getIssuedAt() {
-<span class="fc" id="L74">        return issuedAt;</span>
+<span class="fc" id="L76">        return issuedAt;</span>
     }
 
     public Instant getExpiresAt() {
-<span class="fc" id="L78">        return expiresAt;</span>
+<span class="fc" id="L80">        return expiresAt;</span>
     }
 
     public boolean isRevoked() {
-<span class="fc" id="L82">        return revoked;</span>
+<span class="fc" id="L84">        return revoked;</span>
     }
 
     /**
@@ -88,14 +90,14 @@ public class RefreshTokenEntity {
      * @param reason short reason code, e.g. {@code &quot;LOGOUT&quot;}, {@code &quot;ROTATION&quot;}
      */
     public void revoke(String reason) {
-<span class="fc" id="L91">        this.revoked       = true;</span>
-<span class="fc" id="L92">        this.revokedAt     = Instant.now();</span>
-<span class="fc" id="L93">        this.revokedReason = reason;</span>
-<span class="fc" id="L94">    }</span>
+<span class="fc" id="L93">        this.revoked       = true;</span>
+<span class="fc" id="L94">        this.revokedAt     = Instant.now();</span>
+<span class="fc" id="L95">        this.revokedReason = reason;</span>
+<span class="fc" id="L96">    }</span>
 
     /** Returns {@code true} if the token is past its expiry time. */
     public boolean isExpired() {
-<span class="nc" id="L98">        return Instant.now().isAfter(expiresAt);</span>
+<span class="nc" id="L100">        return Instant.now().isAfter(expiresAt);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

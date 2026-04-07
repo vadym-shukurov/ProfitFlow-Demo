@@ -57,6 +57,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private static final String AUTHENTICATION_FAILED_MESSAGE = "Authentication failed.";
+
     private final AuthenticationManager  authManager;
     private final JwtTokenService        jwtTokenService;
     private final RefreshTokenService    refreshTokenService;
@@ -88,7 +90,7 @@ public class AuthController {
      * @return 200 with token pair, or 401 on any failure (including lockout)
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<Object> login(@Valid @RequestBody LoginRequest request) {
         try {
             Authentication auth = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -114,19 +116,16 @@ public class AuthController {
         } catch (LockedException ex) {
             metrics.recordLoginLocked();
             // Return 401 — same as bad credentials — to prevent lock-state enumeration
-            return ResponseEntity.status(401)
-                    .body(new ApiErrorResponse("Authentication failed."));
+            return authFailed();
 
         } catch (BadCredentialsException ex) {
             userLockout.recordFailedLogin(request.username());
             metrics.recordLoginFailure();
-            return ResponseEntity.status(401)
-                    .body(new ApiErrorResponse("Authentication failed."));
+            return authFailed();
 
         } catch (AuthenticationException ex) {
             metrics.recordLoginFailure();
-            return ResponseEntity.status(401)
-                    .body(new ApiErrorResponse("Authentication failed."));
+            return authFailed();
         }
     }
 
@@ -140,13 +139,12 @@ public class AuthController {
      * @return 200 with new token pair, or 401 if the refresh token is invalid
      */
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest request) {
+    public ResponseEntity<Object> refresh(@Valid @RequestBody RefreshRequest request) {
         RefreshTokenService.RotationResult result =
                 refreshTokenService.rotate(request.refreshToken());
 
         if (!result.valid()) {
-            return ResponseEntity.status(401)
-                    .body(new ApiErrorResponse("Authentication failed."));
+            return authFailed();
         }
 
         // Re-load the user's current authorities (role may have changed since last login)
@@ -167,8 +165,7 @@ public class AuthController {
                     userDetails.getUsername(),
                     roles));
         } catch (Exception ex) {
-            return ResponseEntity.status(401)
-                    .body(new ApiErrorResponse("Authentication failed."));
+            return authFailed();
         }
     }
 
@@ -228,6 +225,11 @@ public class AuthController {
                 tokenRevocationService.revoke(jti, expiresAt, username, reason);
             }
         }
+    }
+
+    private static ResponseEntity<Object> authFailed() {
+        return ResponseEntity.status(401)
+                .body(new ApiErrorResponse(AUTHENTICATION_FAILED_MESSAGE));
     }
 
     // ── Inner record types ───────────────────────────────────────────────────

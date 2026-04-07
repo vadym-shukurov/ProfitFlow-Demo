@@ -62,57 +62,58 @@ public class AuditLogEntity {
     private String correlationId;
 
 <span class="nc" id="L64">    protected AuditLogEntity() {</span>
-<span class="nc" id="L65">    }</span>
+        // JPA / persistence adapter
+<span class="nc" id="L66">    }</span>
 
-    @SuppressWarnings(&quot;checkstyle:ParameterNumber&quot;)
+    @SuppressWarnings({&quot;checkstyle:ParameterNumber&quot;, &quot;java:S107&quot;})
     public AuditLogEntity(UUID id, Instant timestamp, String username, String ipAddress,
                           String action, String entityType, String entityId,
-<span class="fc" id="L70">                          String details, String correlationId) {</span>
-<span class="fc" id="L71">        this.id = id;</span>
-<span class="fc" id="L72">        this.timestamp = timestamp;</span>
-<span class="fc" id="L73">        this.username = username;</span>
-<span class="fc" id="L74">        this.ipAddress = ipAddress;</span>
-<span class="fc" id="L75">        this.action = action;</span>
-<span class="fc" id="L76">        this.entityType = entityType;</span>
-<span class="fc" id="L77">        this.entityId = entityId;</span>
-<span class="fc" id="L78">        this.details = details;</span>
-<span class="fc" id="L79">        this.correlationId = correlationId;</span>
-<span class="fc" id="L80">    }</span>
+<span class="fc" id="L71">                          String details, String correlationId) {</span>
+<span class="fc" id="L72">        this.id = id;</span>
+<span class="fc" id="L73">        this.timestamp = timestamp;</span>
+<span class="fc" id="L74">        this.username = username;</span>
+<span class="fc" id="L75">        this.ipAddress = ipAddress;</span>
+<span class="fc" id="L76">        this.action = action;</span>
+<span class="fc" id="L77">        this.entityType = entityType;</span>
+<span class="fc" id="L78">        this.entityId = entityId;</span>
+<span class="fc" id="L79">        this.details = details;</span>
+<span class="fc" id="L80">        this.correlationId = correlationId;</span>
+<span class="fc" id="L81">    }</span>
 
     public UUID getId() {
-<span class="nc" id="L83">        return id;</span>
+<span class="nc" id="L84">        return id;</span>
     }
 
     public Instant getTimestamp() {
-<span class="nc" id="L87">        return timestamp;</span>
+<span class="nc" id="L88">        return timestamp;</span>
     }
 
     public String getUsername() {
-<span class="fc" id="L91">        return username;</span>
+<span class="fc" id="L92">        return username;</span>
     }
 
     public String getIpAddress() {
-<span class="fc" id="L95">        return ipAddress;</span>
+<span class="fc" id="L96">        return ipAddress;</span>
     }
 
     public String getAction() {
-<span class="fc" id="L99">        return action;</span>
+<span class="fc" id="L100">        return action;</span>
     }
 
     public String getEntityType() {
-<span class="fc" id="L103">        return entityType;</span>
+<span class="fc" id="L104">        return entityType;</span>
     }
 
     public String getEntityId() {
-<span class="fc" id="L107">        return entityId;</span>
+<span class="fc" id="L108">        return entityId;</span>
     }
 
     public String getDetails() {
-<span class="fc" id="L111">        return details;</span>
+<span class="fc" id="L112">        return details;</span>
     }
 
     public String getCorrelationId() {
-<span class="nc" id="L115">        return correlationId;</span>
+<span class="nc" id="L116">        return correlationId;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

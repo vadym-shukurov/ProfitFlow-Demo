@@ -27,6 +27,23 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class DefaultBusinessMetrics implements BusinessMetricsPort {
 
+    private static final String TAG_RESULT = "result";
+    private static final String RESULT_SUCCESS = "success";
+    private static final String RESULT_FAILURE = "failure";
+    private static final String RESULT_LOCKED = "locked";
+    private static final String RESULT_TIMEOUT = "timeout";
+    private static final String RESULT_ERROR = "error";
+
+    private static final String METRIC_ALLOCATION_RUN = "profitflow.allocation.run";
+    private static final String METRIC_COST_IMPORT = "profitflow.cost.import";
+    private static final String METRIC_AUTH_LOGIN = "profitflow.auth.login";
+    private static final String METRIC_AI_SUGGEST = "profitflow.ai.suggest";
+
+    private static final String DESC_TOTAL_ALLOCATION_RUNS = "Total allocation runs";
+    private static final String DESC_CSV_COST_IMPORT_ATTEMPTS = "CSV cost import attempts";
+    private static final String DESC_AUTH_ATTEMPTS = "Authentication attempts";
+    private static final String DESC_AI_OUTCOMES = "AI suggestion outcomes";
+
     private final MeterRegistry registry;
 
     private final Counter allocationRunSuccessCounter;
@@ -49,14 +66,14 @@ public class DefaultBusinessMetrics implements BusinessMetricsPort {
 
     public DefaultBusinessMetrics(MeterRegistry registry) {
         this.registry = registry;
-        allocationRunSuccessCounter = Counter.builder("profitflow.allocation.run")
-                .description("Total allocation runs")
-                .tag("result", "success")
+        allocationRunSuccessCounter = Counter.builder(METRIC_ALLOCATION_RUN)
+                .description(DESC_TOTAL_ALLOCATION_RUNS)
+                .tag(TAG_RESULT, RESULT_SUCCESS)
                 .register(registry);
 
-        allocationRunFailureCounter = Counter.builder("profitflow.allocation.run")
-                .description("Total allocation runs")
-                .tag("result", "failure")
+        allocationRunFailureCounter = Counter.builder(METRIC_ALLOCATION_RUN)
+                .description(DESC_TOTAL_ALLOCATION_RUNS)
+                .tag(TAG_RESULT, RESULT_FAILURE)
                 .register(registry);
 
         allocationRunTimer = Timer.builder("profitflow.allocation.run.duration")
@@ -64,33 +81,33 @@ public class DefaultBusinessMetrics implements BusinessMetricsPort {
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .register(registry);
 
-        costImportSuccessCounter = Counter.builder("profitflow.cost.import")
-                .description("CSV cost import attempts")
-                .tag("result", "success")
+        costImportSuccessCounter = Counter.builder(METRIC_COST_IMPORT)
+                .description(DESC_CSV_COST_IMPORT_ATTEMPTS)
+                .tag(TAG_RESULT, RESULT_SUCCESS)
                 .register(registry);
 
-        costImportFailureCounter = Counter.builder("profitflow.cost.import")
-                .description("CSV cost import attempts")
-                .tag("result", "failure")
+        costImportFailureCounter = Counter.builder(METRIC_COST_IMPORT)
+                .description(DESC_CSV_COST_IMPORT_ATTEMPTS)
+                .tag(TAG_RESULT, RESULT_FAILURE)
                 .register(registry);
 
         costCreatedCounter = Counter.builder("profitflow.cost.created")
                 .description("Individual cost records created via POST")
                 .register(registry);
 
-        loginSuccessCounter = Counter.builder("profitflow.auth.login")
-                .description("Authentication attempts")
-                .tag("result", "success")
+        loginSuccessCounter = Counter.builder(METRIC_AUTH_LOGIN)
+                .description(DESC_AUTH_ATTEMPTS)
+                .tag(TAG_RESULT, RESULT_SUCCESS)
                 .register(registry);
 
-        loginFailureCounter = Counter.builder("profitflow.auth.login")
-                .description("Authentication attempts")
-                .tag("result", "failure")
+        loginFailureCounter = Counter.builder(METRIC_AUTH_LOGIN)
+                .description(DESC_AUTH_ATTEMPTS)
+                .tag(TAG_RESULT, RESULT_FAILURE)
                 .register(registry);
 
-        loginLockedCounter = Counter.builder("profitflow.auth.login")
-                .description("Authentication attempts")
-                .tag("result", "locked")
+        loginLockedCounter = Counter.builder(METRIC_AUTH_LOGIN)
+                .description(DESC_AUTH_ATTEMPTS)
+                .tag(TAG_RESULT, RESULT_LOCKED)
                 .register(registry);
 
         refreshTokenReuseCounter = Counter.builder("profitflow.auth.refresh.reuse")
@@ -102,14 +119,14 @@ public class DefaultBusinessMetrics implements BusinessMetricsPort {
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .register(registry);
 
-        aiSuggestTimeoutCounter = Counter.builder("profitflow.ai.suggest")
-                .description("AI suggestion outcomes")
-                .tag("result", "timeout")
+        aiSuggestTimeoutCounter = Counter.builder(METRIC_AI_SUGGEST)
+                .description(DESC_AI_OUTCOMES)
+                .tag(TAG_RESULT, RESULT_TIMEOUT)
                 .register(registry);
 
-        aiSuggestErrorCounter = Counter.builder("profitflow.ai.suggest")
-                .description("AI suggestion outcomes")
-                .tag("result", "error")
+        aiSuggestErrorCounter = Counter.builder(METRIC_AI_SUGGEST)
+                .description(DESC_AI_OUTCOMES)
+                .tag(TAG_RESULT, RESULT_ERROR)
                 .register(registry);
     }
 

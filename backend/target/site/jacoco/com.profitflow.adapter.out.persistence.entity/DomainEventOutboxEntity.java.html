@@ -30,48 +30,49 @@ public class DomainEventOutboxEntity {
 
     /** JPA / persistence adapter */
 <span class="fc" id="L32">    public DomainEventOutboxEntity() {</span>
-<span class="fc" id="L33">    }</span>
+        // JPA / persistence adapter
+<span class="fc" id="L34">    }</span>
 
     @PrePersist
     void prePersist() {
-<span class="nc bnc" id="L37" title="All 2 branches missed.">        if (id == null) {</span>
-<span class="nc" id="L38">            id = UUID.randomUUID();</span>
+<span class="nc bnc" id="L38" title="All 2 branches missed.">        if (id == null) {</span>
+<span class="nc" id="L39">            id = UUID.randomUUID();</span>
         }
-<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (createdAt == null) {</span>
-<span class="nc" id="L41">            createdAt = Instant.now();</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (createdAt == null) {</span>
+<span class="nc" id="L42">            createdAt = Instant.now();</span>
         }
-<span class="nc" id="L43">    }</span>
+<span class="nc" id="L44">    }</span>
 
     public void setEventType(String eventType) {
-<span class="fc" id="L46">        this.eventType = eventType;</span>
-<span class="fc" id="L47">    }</span>
+<span class="fc" id="L47">        this.eventType = eventType;</span>
+<span class="fc" id="L48">    }</span>
 
     public void setPayloadJson(String payloadJson) {
-<span class="fc" id="L50">        this.payloadJson = payloadJson;</span>
-<span class="fc" id="L51">    }</span>
+<span class="fc" id="L51">        this.payloadJson = payloadJson;</span>
+<span class="fc" id="L52">    }</span>
 
     public UUID getId() {
-<span class="nc" id="L54">        return id;</span>
+<span class="nc" id="L55">        return id;</span>
     }
 
     public String getEventType() {
-<span class="fc" id="L58">        return eventType;</span>
+<span class="fc" id="L59">        return eventType;</span>
     }
 
     public String getPayloadJson() {
-<span class="fc" id="L62">        return payloadJson;</span>
+<span class="fc" id="L63">        return payloadJson;</span>
     }
 
     public Instant getCreatedAt() {
-<span class="nc" id="L66">        return createdAt;</span>
+<span class="nc" id="L67">        return createdAt;</span>
     }
 
     public Instant getPublishedAt() {
-<span class="fc" id="L70">        return publishedAt;</span>
+<span class="fc" id="L71">        return publishedAt;</span>
     }
 
     public void setPublishedAt(Instant publishedAt) {
-<span class="fc" id="L74">        this.publishedAt = publishedAt;</span>
-<span class="fc" id="L75">    }</span>
+<span class="fc" id="L75">        this.publishedAt = publishedAt;</span>
+<span class="fc" id="L76">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

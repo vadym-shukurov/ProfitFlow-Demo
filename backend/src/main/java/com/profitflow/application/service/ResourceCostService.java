@@ -152,30 +152,23 @@ public class ResourceCostService implements ResourceCostUseCase {
 
             try (CSVParser parser = format.parse(new StringReader(csvContent))) {
                 int rowNumber = 0;
-                for (CSVRecord record : parser) {
+                for (CSVRecord csvRecord : parser) {
                     rowNumber++;
 
                     // Skip header row (first row whose first value looks like a column name)
-                    if (rowNumber == 1 && isHeaderRecord(record)) {
+                    if (rowNumber == 1 && isHeaderRecord(csvRecord)) {
                         continue;
                     }
 
-                    if (record.size() < 2) {
+                    if (csvRecord.size() < 2) {
                         throw new InvalidInputException(
                                 "CSV row " + rowNumber + " must have at least 2 columns "
-                                + "(label,amount) but had " + record.size());
+                                + "(label,amount) but had " + csvRecord.size());
                     }
 
-                    String label = stripCsvInjectionChars(record.get(0));
-                    BigDecimal amount;
-                    try {
-                        amount = new BigDecimal(record.get(1));
-                    } catch (NumberFormatException e) {
-                        throw new InvalidInputException(
-                                "CSV row " + rowNumber + " has non-numeric amount: '"
-                                + record.get(1) + "'", e);
-                    }
-                    String currency = record.size() >= 3 ? record.get(2) : "USD";
+                    String label = stripCsvInjectionChars(csvRecord.get(0));
+                    BigDecimal amount = parseAmount(rowNumber, csvRecord.get(1));
+                    String currency = csvRecord.size() >= 3 ? csvRecord.get(2) : "USD";
                     // Route through self-proxy so @AuditedOperation and @CacheEvict on
                     // createCost fire for each row (Spring AOP does not intercept
                     // direct same-class calls).
@@ -231,5 +224,14 @@ public class ResourceCostService implements ResourceCostUseCase {
     /** Returns {@code true} if the record looks like a CSV header row. */
     private static boolean isHeaderRecord(CSVRecord record) {
         return record.size() > 0 && record.get(0).toLowerCase().contains("label");
+    }
+
+    private static BigDecimal parseAmount(int rowNumber, String rawAmount) {
+        try {
+            return new BigDecimal(rawAmount);
+        } catch (NumberFormatException e) {
+            throw new InvalidInputException(
+                    "CSV row " + rowNumber + " has non-numeric amount: '" + rawAmount + "'", e);
+        }
     }
 }

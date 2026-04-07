@@ -115,7 +115,9 @@ export class CostLedgerStore {
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: rows => {
-          this.notify.success(`Imported ${rows.length} cost${rows.length !== 1 ? 's' : ''} successfully.`);
+          const count = rows.length;
+          const noun = count === 1 ? 'cost' : 'costs';
+          this.notify.success(`Imported ${count} ${noun} successfully.`);
           this.load();
           onSuccess?.();
         },

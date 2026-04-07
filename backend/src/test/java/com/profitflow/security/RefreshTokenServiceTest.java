@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -43,7 +44,14 @@ class RefreshTokenServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RefreshTokenService(repository, metrics);
+        final ObjectProvider<RefreshTokenService>[] holder = new ObjectProvider[1];
+        holder[0] = new ObjectProvider<>() {
+            @Override
+            public RefreshTokenService getObject() {
+                return service;
+            }
+        };
+        service = new RefreshTokenService(repository, metrics, holder[0]);
     }
 
     // ── issue() ───────────────────────────────────────────────────────────────

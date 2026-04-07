@@ -38,9 +38,7 @@ export class GlobalErrorHandler implements ErrorHandler {
     console.error('[GlobalErrorHandler]', error);
 
     // Lazily resolve NotificationService on first error to avoid circular DI
-    if (!this.notify) {
-      this.notify = this.injector.get(NotificationService);
-    }
+    this.notify ??= this.injector.get(NotificationService);
 
     const message = extractMessage(error);
 

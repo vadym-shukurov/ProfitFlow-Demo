@@ -51,7 +51,6 @@ com/profitflow/application/service/ProductCatalogService.class
 com/profitflow/security/AuditService$AuditWriteException.class
 com/profitflow/security/CorrelationIdFilter.class
 com/profitflow/application/port/in/ProductCatalogUseCase.class
-com/profitflow/infrastructure/BusinessMetrics.class
 com/profitflow/adapter/out/persistence/jpa/AppUserEntityRepository.class
 com/profitflow/adapter/in/web/dto/ActivityProductRuleDto.class
 com/profitflow/security/JwtTokenService.class

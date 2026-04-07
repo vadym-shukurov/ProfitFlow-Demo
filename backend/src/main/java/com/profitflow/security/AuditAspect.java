@@ -66,7 +66,7 @@ public class AuditAspect {
         if (audited.critical()) {
             auditService.recordCritical(audited.action(), audited.entityType(), entityId, details);
         } else {
-            auditService.record(audited.action(), audited.entityType(), entityId, details);
+            auditService.recordAudit(audited.action(), audited.entityType(), entityId, details);
         }
 
         if (error != null) {
@@ -118,7 +118,7 @@ public class AuditAspect {
             return false;
         }
         for (String segment : path.split("\\.", -1)) {
-            if (segment.isEmpty() || !segment.matches("^[A-Za-z_][A-Za-z0-9_]*$")) {
+            if (segment.isEmpty() || !segment.matches("^[A-Za-z_]\\w*$")) {
                 return false;
             }
         }

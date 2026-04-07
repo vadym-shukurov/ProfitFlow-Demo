@@ -56,13 +56,19 @@ public class AuditService {
      * @param details    freeform summary string (max 2000 chars)
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(String action, String entityType, String entityId, String details) {
+    public void recordAudit(String action, String entityType, String entityId, String details) {
         try {
             persist(action, entityType, entityId, details);
         } catch (Exception ex) {
             log.error("AUDIT_WRITE_FAILED action={} correlationId={}: {}",
                     action, MDC.get(CorrelationIdFilter.MDC_KEY), ex.getMessage());
         }
+    }
+
+    @SuppressWarnings("java:S6213")
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void record(String action, String entityType, String entityId, String details) {
+        recordAudit(action, entityType, entityId, details);
     }
 
     /**

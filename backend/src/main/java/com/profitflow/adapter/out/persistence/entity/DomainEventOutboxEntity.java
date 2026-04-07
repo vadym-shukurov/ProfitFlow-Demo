@@ -30,6 +30,7 @@ public class DomainEventOutboxEntity {
 
     /** JPA / persistence adapter */
     public DomainEventOutboxEntity() {
+        // JPA / persistence adapter
     }
 
     @PrePersist

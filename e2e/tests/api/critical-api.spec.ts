@@ -19,13 +19,31 @@ if (process.env.CI && !process.env.PLAYWRIGHT_API_BASE_URL) {
 const cookieJar = new Map<string, string>();
 
 function mergeSetCookies(res: Response): void {
+  // Prefer the explicit CSRF echo header emitted by the backend (see
+  // backend `CsrfTokenResponseHeaderFilter`). This avoids relying on Set-Cookie
+  // parsing semantics across Node/undici versions.
+  const echoed = res.headers.get('x-xsrf-token');
+  if (echoed && echoed.trim()) {
+    cookieJar.set('XSRF-TOKEN', echoed.trim());
+  }
+
   const raw = res.headers as unknown as { getSetCookie?: () => string[] };
   const list = typeof raw.getSetCookie === 'function' ? raw.getSetCookie() : [];
   for (const c of list) {
     const pair = c.split(';')[0]?.trim() ?? '';
     const eq = pair.indexOf('=');
     if (eq > 0) {
-      cookieJar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+      const name = pair.slice(0, eq).trim();
+      const value = pair.slice(eq + 1).trim();
+      // CookieCsrfTokenRepository URL-encodes values; decode so header+cookie match.
+      const decoded = decodeURIComponent(value);
+      // Some responses may transiently emit an empty XSRF-TOKEN Set-Cookie (e.g. unauthenticated
+      // responses that still pass through the CSRF machinery). Treat that as "no update" so we
+      // don't accidentally drop a valid token and start sending CSRF-less POSTs (401).
+      if (name === 'XSRF-TOKEN' && !decoded) {
+        continue;
+      }
+      cookieJar.set(name, decoded);
     }
   }
 }

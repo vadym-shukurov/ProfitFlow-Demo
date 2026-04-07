@@ -51,6 +51,7 @@ com/profitflow/adapter/in/web/ActivityControllerTest.class
 com/profitflow/application/service/AllocationRunQueryServiceTest.class
 com/profitflow/security/RateLimitingFilterTest$4.class
 com/profitflow/adapter/in/web/AiSuggestionControllerTest.class
+com/profitflow/security/RefreshTokenServiceTest$1.class
 com/profitflow/adapter/out/persistence/RefreshTokenPersistenceAdapterTest.class
 com/profitflow/security/AuditAspectTest$1DomainEntity.class
 com/profitflow/adapter/out/ai/MockAiAllocatorAdapterTest.class

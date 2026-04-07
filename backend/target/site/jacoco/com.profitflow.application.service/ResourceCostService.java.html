@@ -152,60 +152,53 @@ public class ResourceCostService implements ResourceCostUseCase {
 
 <span class="fc" id="L153">            try (CSVParser parser = format.parse(new StringReader(csvContent))) {</span>
 <span class="fc" id="L154">                int rowNumber = 0;</span>
-<span class="fc bfc" id="L155" title="All 2 branches covered.">                for (CSVRecord record : parser) {</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">                for (CSVRecord csvRecord : parser) {</span>
 <span class="fc" id="L156">                    rowNumber++;</span>
 
                     // Skip header row (first row whose first value looks like a column name)
-<span class="fc bfc" id="L159" title="All 4 branches covered.">                    if (rowNumber == 1 &amp;&amp; isHeaderRecord(record)) {</span>
+<span class="fc bfc" id="L159" title="All 4 branches covered.">                    if (rowNumber == 1 &amp;&amp; isHeaderRecord(csvRecord)) {</span>
 <span class="fc" id="L160">                        continue;</span>
                     }
 
-<span class="fc bfc" id="L163" title="All 2 branches covered.">                    if (record.size() &lt; 2) {</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">                    if (csvRecord.size() &lt; 2) {</span>
 <span class="fc" id="L164">                        throw new InvalidInputException(</span>
                                 &quot;CSV row &quot; + rowNumber + &quot; must have at least 2 columns &quot;
-<span class="fc" id="L166">                                + &quot;(label,amount) but had &quot; + record.size());</span>
+<span class="fc" id="L166">                                + &quot;(label,amount) but had &quot; + csvRecord.size());</span>
                     }
 
-<span class="fc" id="L169">                    String label = stripCsvInjectionChars(record.get(0));</span>
-                    BigDecimal amount;
-                    try {
-<span class="fc" id="L172">                        amount = new BigDecimal(record.get(1));</span>
-<span class="fc" id="L173">                    } catch (NumberFormatException e) {</span>
-<span class="fc" id="L174">                        throw new InvalidInputException(</span>
-                                &quot;CSV row &quot; + rowNumber + &quot; has non-numeric amount: '&quot;
-<span class="fc" id="L176">                                + record.get(1) + &quot;'&quot;, e);</span>
-<span class="fc" id="L177">                    }</span>
-<span class="fc bfc" id="L178" title="All 2 branches covered.">                    String currency = record.size() &gt;= 3 ? record.get(2) : &quot;USD&quot;;</span>
+<span class="fc" id="L169">                    String label = stripCsvInjectionChars(csvRecord.get(0));</span>
+<span class="fc" id="L170">                    BigDecimal amount = parseAmount(rowNumber, csvRecord.get(1));</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">                    String currency = csvRecord.size() &gt;= 3 ? csvRecord.get(2) : &quot;USD&quot;;</span>
                     // Route through self-proxy so @AuditedOperation and @CacheEvict on
                     // createCost fire for each row (Spring AOP does not intercept
                     // direct same-class calls).
-<span class="fc" id="L182">                    created.add(self.getObject().createCost(label, amount, currency));</span>
-<span class="fc" id="L183">                }</span>
+<span class="fc" id="L175">                    created.add(self.getObject().createCost(label, amount, currency));</span>
+<span class="fc" id="L176">                }</span>
             }
-<span class="fc" id="L185">            metrics.recordCostImportSuccess();</span>
-<span class="fc" id="L186">        } catch (InvalidInputException e) {</span>
-<span class="fc" id="L187">            metrics.recordCostImportFailure();</span>
-<span class="fc" id="L188">            throw e;</span>
-<span class="nc" id="L189">        } catch (IllegalArgumentException e) {</span>
-<span class="nc" id="L190">            metrics.recordCostImportFailure();</span>
-<span class="nc" id="L191">            throw new InvalidInputException(e.getMessage(), e);</span>
-<span class="nc" id="L192">        } catch (IOException e) {</span>
-<span class="nc" id="L193">            metrics.recordCostImportFailure();</span>
-<span class="nc" id="L194">            throw new InvalidInputException(&quot;Failed to parse CSV content: &quot; + e.getMessage(), e);</span>
-<span class="fc" id="L195">        }</span>
-<span class="fc" id="L196">        return created;</span>
+<span class="fc" id="L178">            metrics.recordCostImportSuccess();</span>
+<span class="fc" id="L179">        } catch (InvalidInputException e) {</span>
+<span class="fc" id="L180">            metrics.recordCostImportFailure();</span>
+<span class="fc" id="L181">            throw e;</span>
+<span class="nc" id="L182">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L183">            metrics.recordCostImportFailure();</span>
+<span class="nc" id="L184">            throw new InvalidInputException(e.getMessage(), e);</span>
+<span class="nc" id="L185">        } catch (IOException e) {</span>
+<span class="nc" id="L186">            metrics.recordCostImportFailure();</span>
+<span class="nc" id="L187">            throw new InvalidInputException(&quot;Failed to parse CSV content: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L188">        }</span>
+<span class="fc" id="L189">        return created;</span>
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private static Currency parseCurrency(String code) {
-<span class="fc bfc" id="L202" title="All 4 branches covered.">        if (code == null || code.isBlank()) {</span>
-<span class="fc" id="L203">            return Currency.getInstance(&quot;USD&quot;);</span>
+<span class="fc bfc" id="L195" title="All 4 branches covered.">        if (code == null || code.isBlank()) {</span>
+<span class="fc" id="L196">            return Currency.getInstance(&quot;USD&quot;);</span>
         }
         try {
-<span class="fc" id="L206">            return Currency.getInstance(code.strip().toUpperCase());</span>
-<span class="fc" id="L207">        } catch (IllegalArgumentException e) {</span>
-<span class="fc" id="L208">            throw new InvalidInputException(&quot;Unknown currency code: '&quot; + code + &quot;'&quot;, e);</span>
+<span class="fc" id="L199">            return Currency.getInstance(code.strip().toUpperCase());</span>
+<span class="fc" id="L200">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L201">            throw new InvalidInputException(&quot;Unknown currency code: '&quot; + code + &quot;'&quot;, e);</span>
         }
     }
 
@@ -218,19 +211,28 @@ public class ResourceCostService implements ResourceCostUseCase {
      * formula when the exported CSV is opened in a spreadsheet.
      */
     static String stripCsvInjectionChars(String value) {
-<span class="fc bfc" id="L221" title="All 2 branches covered.">        if (value == null) {</span>
-<span class="fc" id="L222">            return null;</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L215">            return null;</span>
         }
-<span class="fc" id="L224">        int i = 0;</span>
-<span class="pc bpc" id="L225" title="1 of 4 branches missed.">        while (i &lt; value.length() &amp;&amp; &quot;=+-@\t\r&quot;.indexOf(value.charAt(i)) &gt;= 0) {</span>
-<span class="fc" id="L226">            i++;</span>
+<span class="fc" id="L217">        int i = 0;</span>
+<span class="pc bpc" id="L218" title="1 of 4 branches missed.">        while (i &lt; value.length() &amp;&amp; &quot;=+-@\t\r&quot;.indexOf(value.charAt(i)) &gt;= 0) {</span>
+<span class="fc" id="L219">            i++;</span>
         }
-<span class="fc" id="L228">        return value.substring(i).stripLeading();</span>
+<span class="fc" id="L221">        return value.substring(i).stripLeading();</span>
     }
 
     /** Returns {@code true} if the record looks like a CSV header row. */
     private static boolean isHeaderRecord(CSVRecord record) {
-<span class="pc bpc" id="L233" title="1 of 4 branches missed.">        return record.size() &gt; 0 &amp;&amp; record.get(0).toLowerCase().contains(&quot;label&quot;);</span>
+<span class="pc bpc" id="L226" title="1 of 4 branches missed.">        return record.size() &gt; 0 &amp;&amp; record.get(0).toLowerCase().contains(&quot;label&quot;);</span>
+    }
+
+    private static BigDecimal parseAmount(int rowNumber, String rawAmount) {
+        try {
+<span class="fc" id="L231">            return new BigDecimal(rawAmount);</span>
+<span class="fc" id="L232">        } catch (NumberFormatException e) {</span>
+<span class="fc" id="L233">            throw new InvalidInputException(</span>
+                    &quot;CSV row &quot; + rowNumber + &quot; has non-numeric amount: '&quot; + rawAmount + &quot;'&quot;, e);
+        }
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -33,6 +33,7 @@ public class AllocationRunEntity {
 
     /** JPA / persistence adapter */
     public AllocationRunEntity() {
+        // JPA / persistence adapter
     }
 
     @PrePersist

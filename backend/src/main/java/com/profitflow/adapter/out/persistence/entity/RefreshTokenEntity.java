@@ -46,7 +46,9 @@ public class RefreshTokenEntity {
     @Column(name = "revoked_reason", length = 100)
     private String revokedReason;
 
-    protected RefreshTokenEntity() {}
+    protected RefreshTokenEntity() {
+        // JPA / persistence adapter
+    }
 
     public RefreshTokenEntity(UUID id, String tokenHash, String username,
                               Instant issuedAt, Instant expiresAt) {

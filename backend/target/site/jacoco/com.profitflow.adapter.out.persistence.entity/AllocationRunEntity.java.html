@@ -33,45 +33,46 @@ public class AllocationRunEntity {
 
     /** JPA / persistence adapter */
 <span class="fc" id="L35">    public AllocationRunEntity() {</span>
-<span class="fc" id="L36">    }</span>
+        // JPA / persistence adapter
+<span class="fc" id="L37">    }</span>
 
     @PrePersist
     void prePersist() {
-<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (executedAt == null) {</span>
-<span class="nc" id="L41">            executedAt = Instant.now();</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (executedAt == null) {</span>
+<span class="nc" id="L42">            executedAt = Instant.now();</span>
         }
-<span class="nc" id="L43">    }</span>
+<span class="nc" id="L44">    }</span>
 
     public Long getRunNumber() {
-<span class="nc" id="L46">        return runNumber;</span>
+<span class="nc" id="L47">        return runNumber;</span>
     }
 
     public Instant getExecutedAt() {
-<span class="nc" id="L50">        return executedAt;</span>
+<span class="nc" id="L51">        return executedAt;</span>
     }
 
     public String getExecutedBy() {
-<span class="nc" id="L54">        return executedBy;</span>
+<span class="nc" id="L55">        return executedBy;</span>
     }
 
     public String getInputSnapshotHash() {
-<span class="nc" id="L58">        return inputSnapshotHash;</span>
+<span class="nc" id="L59">        return inputSnapshotHash;</span>
     }
 
     public String getResultJson() {
-<span class="nc" id="L62">        return resultJson;</span>
+<span class="nc" id="L63">        return resultJson;</span>
     }
 
     public void setExecutedBy(String executedBy) {
-<span class="nc" id="L66">        this.executedBy = executedBy;</span>
-<span class="nc" id="L67">    }</span>
+<span class="nc" id="L67">        this.executedBy = executedBy;</span>
+<span class="nc" id="L68">    }</span>
 
     public void setInputSnapshotHash(String inputSnapshotHash) {
-<span class="nc" id="L70">        this.inputSnapshotHash = inputSnapshotHash;</span>
-<span class="nc" id="L71">    }</span>
+<span class="nc" id="L71">        this.inputSnapshotHash = inputSnapshotHash;</span>
+<span class="nc" id="L72">    }</span>
 
     public void setResultJson(String resultJson) {
-<span class="nc" id="L74">        this.resultJson = resultJson;</span>
-<span class="nc" id="L75">    }</span>
+<span class="nc" id="L75">        this.resultJson = resultJson;</span>
+<span class="nc" id="L76">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

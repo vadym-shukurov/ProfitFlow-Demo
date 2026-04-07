@@ -30,7 +30,7 @@ export class AllocationRulesPage implements OnInit {
   protected saveResourceActivity(): void {
     const rows = this.rules.resourceActivityRules();
     const invalid = rows.some(
-      (r) => !r.resourceId || !r.activityId || !(r.driverWeight > 0),
+      (r) => !r.resourceId || !r.activityId || r.driverWeight <= 0,
     );
     if (invalid) {
       this.rules.error.set('Each resource row needs a resource, activity, and a positive driver weight.');
@@ -43,7 +43,7 @@ export class AllocationRulesPage implements OnInit {
   protected saveActivityProduct(): void {
     const rows = this.rules.activityProductRules();
     const invalid = rows.some(
-      (r) => !r.activityId || !r.productId || !(r.driverWeight > 0),
+      (r) => !r.activityId || !r.productId || r.driverWeight <= 0,
     );
     if (invalid) {
       this.rules.error.set('Each product row needs an activity, product, and a positive driver weight.');

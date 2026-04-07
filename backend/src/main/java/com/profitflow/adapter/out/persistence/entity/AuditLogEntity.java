@@ -62,9 +62,10 @@ public class AuditLogEntity {
     private String correlationId;
 
     protected AuditLogEntity() {
+        // JPA / persistence adapter
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings({"checkstyle:ParameterNumber", "java:S107"})
     public AuditLogEntity(UUID id, Instant timestamp, String username, String ipAddress,
                           String action, String entityType, String entityId,
                           String details, String correlationId) {
