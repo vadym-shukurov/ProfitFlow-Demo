@@ -164,7 +164,9 @@ public class RsaKeyLoader {
             }
             return classpathPublic;
         }
-        if (classpathPublic != null && classpathPrivate == null && log.isWarnEnabled()) {
+        // At this point, if classpathPublic != null then classpathPrivate must be null
+        // (the matched-keypair branch returned above). Keep the condition minimal for clarity.
+        if (classpathPublic != null && log.isWarnEnabled()) {
             log.warn("SECURITY WARNING: Only a classpath public key is configured (no private key). "
                     + "Generating an ephemeral dev keypair so JWT signing works. "
                     + "Tokens will be invalid after restart.");

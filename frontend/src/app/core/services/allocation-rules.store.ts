@@ -180,21 +180,36 @@ export class AllocationRulesStore {
     rows: any[],
     idFields: string[],
   ): string | null {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i] as Record<string, unknown>;
+    const normalizeCell = (rawValue: unknown): string => {
+      if (rawValue == null) {
+        return '';
+      }
+      if (typeof rawValue === 'string') {
+        return rawValue;
+      }
+      if (typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+        return String(rawValue);
+      }
+      return '';
+    };
+
+    const validateRow = (rowIndex: number, row: Record<string, unknown>): string | null => {
       for (const field of idFields) {
-        const rawValue = row[field];
-        const value =
-          rawValue == null ? '' :
-            typeof rawValue === 'string' ? rawValue :
-              typeof rawValue === 'number' || typeof rawValue === 'boolean' ? String(rawValue) :
-                '';
+        const value = normalizeCell(row[field]);
         if (value.trim() === '') {
-          return `Row ${i + 1}: please select a value for "${field}".`;
+          return `Row ${rowIndex + 1}: please select a value for "${field}".`;
         }
       }
       if (Number(row['driverWeight']) <= 0) {
-        return `Row ${i + 1}: driver weight must be a positive number.`;
+        return `Row ${rowIndex + 1}: driver weight must be a positive number.`;
+      }
+      return null;
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const err = validateRow(i, rows[i] as Record<string, unknown>);
+      if (err) {
+        return err;
       }
     }
     return null;
