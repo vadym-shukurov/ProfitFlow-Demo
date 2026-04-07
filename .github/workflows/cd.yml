@@ -222,7 +222,7 @@ jobs:
 
   # ── Deploy to production ───────────────────────────────────────────────────
   deploy-production:
-    name: "Deploy → Production (disabled)"
+    name: "Deploy → Production"
     runs-on: ubuntu-latest
     needs: [resolve-tag, await-approval]
     environment:
