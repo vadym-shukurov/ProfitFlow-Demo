@@ -78,6 +78,7 @@ env:
   IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/profitflow-api
   IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/profitflow-ui
   STAGING_BASE_URL: https://profitflow-ui-staging.fly.dev
+  STAGING_API_BASE_URL: https://profitflow-api-staging.fly.dev
 
 jobs:
   # ── Resolve image tag ──────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ jobs:
           echo "Waiting for staging API to become healthy..."
           for i in {1..30}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              ${{ env.STAGING_BASE_URL }}/actuator/health || echo "000")
+              ${{ env.STAGING_API_BASE_URL }}/actuator/health || echo "000")
             if [[ "$STATUS" == "200" ]]; then
               echo "API is healthy (attempt $i)"
               exit 0
@@ -190,14 +191,14 @@ jobs:
       # Critical-path smoke tests — verify key endpoints respond correctly
       - name: Critical path — unauthenticated health
         run: |
-          curl -fsS ${{ env.STAGING_BASE_URL }}/actuator/health \
+          curl -fsS ${{ env.STAGING_API_BASE_URL }}/actuator/health \
             | grep -q '"status":"UP"'
           echo "✓ /actuator/health is UP"
 
       - name: Critical path — unauthenticated request returns 401
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            ${{ env.STAGING_BASE_URL }}/api/v1/resource-costs)
+            ${{ env.STAGING_API_BASE_URL }}/api/v1/resource-costs)
           if [[ "$STATUS" != "401" ]]; then
             echo "Expected 401, got $STATUS"
             exit 1
