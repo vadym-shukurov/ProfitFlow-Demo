@@ -150,7 +150,7 @@ jobs:
 
       - name: Notify Slack — staging deploy started
         uses: slackapi/slack-github-action@v1.27
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
         with:
           payload: |
             {
@@ -249,7 +249,7 @@ jobs:
 
       - name: Notify Slack — smoke tests result
         uses: slackapi/slack-github-action@v1.27
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
         with:
           payload: |
             {
@@ -349,7 +349,7 @@ jobs:
 
       - name: Notify Slack — production deployed
         uses: slackapi/slack-github-action@v1.27
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: ${{ success() && secrets.SLACK_WEBHOOK_URL != '' }}
         with:
           payload: |
             {
@@ -393,7 +393,7 @@ jobs:
 
       - name: Notify Slack — rollback executed
         uses: slackapi/slack-github-action@v1.27
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
         with:
           payload: |
             {
