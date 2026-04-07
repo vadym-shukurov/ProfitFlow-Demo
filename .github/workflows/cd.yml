@@ -36,7 +36,6 @@
 #   PRODUCTION_SSH_KEY       — SSH private key for the production server
 #   PRODUCTION_HOST          — Production server hostname
 #   PRODUCTION_USER          — SSH user on the production server
-#   SLACK_WEBHOOK_URL        — Slack webhook for deployment notifications
 #   DB_URL                   — Database URL (per environment, set in Environment)
 #   DB_USERNAME              — Database username
 #   DB_PASSWORD              — Database password (use GitHub Environments for scope)
@@ -148,24 +147,6 @@ jobs:
         run: |
           flyctl deploy -c fly.staging.toml --remote-only --yes
 
-      - name: Notify Slack — staging deploy started
-        uses: slackapi/slack-github-action@v1.27
-        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
-        with:
-          payload: |
-            {
-              "text": "🚀 *Staging deploy* `${{ needs.resolve-tag.outputs.tag }}` started by `${{ github.actor }}`",
-              "blocks": [{
-                "type": "section",
-                "text": { "type": "mrkdwn",
-                  "text": "🚀 *Staging deploy* `${{ needs.resolve-tag.outputs.tag }}`\nTriggered by: `${{ github.actor }}`\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
-                }
-              }]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-
   # ── Smoke tests (staging) ──────────────────────────────────────────────────
   smoke-tests:
     name: "Smoke Tests — Staging"
@@ -246,18 +227,6 @@ jobs:
             exit 1
           fi
           echo "✓ Unauthenticated request correctly returns 401"
-
-      - name: Notify Slack — smoke tests result
-        uses: slackapi/slack-github-action@v1.27
-        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
-        with:
-          payload: |
-            {
-              "text": "${{ job.status == 'success' && '✅' || '❌' }} *Smoke tests* on staging: `${{ job.status }}`"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
   # ── Manual approval gate ───────────────────────────────────────────────────
   # GitHub Environments with required reviewers implement the approval gate.
@@ -348,16 +317,7 @@ jobs:
             exit 1
 
       - name: Notify Slack — production deployed
-        uses: slackapi/slack-github-action@v1.27
-        if: ${{ success() && secrets.SLACK_WEBHOOK_URL != '' }}
-        with:
-          payload: |
-            {
-              "text": "🎉 *Production deploy SUCCEEDED* — `${{ needs.resolve-tag.outputs.tag }}`\nApproved & deployed by: `${{ github.actor }}`"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        run: echo "Production deploy succeeded."
 
   # ── Automatic rollback ─────────────────────────────────────────────────────
   rollback-production:
@@ -392,19 +352,4 @@ jobs:
             echo "Rollback to $PREV_TAG completed"
 
       - name: Notify Slack — rollback executed
-        uses: slackapi/slack-github-action@v1.27
-        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
-        with:
-          payload: |
-            {
-              "text": "🔄 *Production ROLLED BACK* to `${{ needs.deploy-production.outputs.previous_tag }}`\nDeploy of `${{ needs.resolve-tag.outputs.tag }}` failed.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View failed run>",
-              "blocks": [{
-                "type": "section",
-                "text": { "type": "mrkdwn",
-                  "text": "🚨 *Production ROLLBACK triggered*\n• Failed tag: `${{ needs.resolve-tag.outputs.tag }}`\n• Rolled back to: `${{ needs.deploy-production.outputs.previous_tag }}`\n• Triggered by: `${{ github.actor }}`"
-                }
-              }]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        run: echo "Rollback executed."
