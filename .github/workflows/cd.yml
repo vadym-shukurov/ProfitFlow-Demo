@@ -32,10 +32,7 @@
 #   └───────────────────┘
 #
 # Required secrets:
-#   FLY_API_TOKEN            — Fly.io access token (used for staging deploy)
-#   PRODUCTION_SSH_KEY       — SSH private key for the production server
-#   PRODUCTION_HOST          — Production server hostname
-#   PRODUCTION_USER          — SSH user on the production server
+#   FLY_API_TOKEN            — Fly.io access token (used for staging + production deploy)
 #   DB_URL                   — Database URL (per environment, set in Environment)
 #   DB_USERNAME              — Database username
 #   DB_PASSWORD              — Database password (use GitHub Environments for scope)
@@ -79,6 +76,8 @@ env:
   IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/profitflow-ui
   STAGING_BASE_URL: https://profitflow-ui-staging.fly.dev
   STAGING_API_BASE_URL: https://profitflow-api-staging.fly.dev
+  PRODUCTION_BASE_URL: https://profitflow-ui-production.fly.dev
+  PRODUCTION_API_BASE_URL: https://profitflow-api-production.fly.dev
 
 jobs:
   # ── Resolve image tag ──────────────────────────────────────────────────────
@@ -228,105 +227,50 @@ jobs:
     needs: [resolve-tag, await-approval]
     environment:
       name: production
-      url: https://profitflow.example.com
-    # Store the previously-deployed tag so rollback can reference it
-    outputs:
-      previous_tag: ${{ steps.get-current.outputs.tag }}
+      url: ${{ env.PRODUCTION_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
 
-      # Record the currently-running tag before we overwrite it
-      - name: Get current production tag
-        id: get-current
-        uses: appleboy/ssh-action@v1
-        with:
-          host:     ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key:      ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            CURRENT=$(docker inspect profitflow-api \
-              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' \
-              2>/dev/null || echo "unknown")
-            echo "tag=$CURRENT" >> "$GITHUB_OUTPUT"
+      - name: Ensure Fly.io production apps exist
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          flyctl apps create profitflow-api-production || true
+          flyctl apps create profitflow-ui-production || true
 
-      # Blue/green: pull new image, start new container, health-check,
-      # then stop the old one only after the new one is healthy.
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1
-        with:
-          host:     ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key:      ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            set -euo pipefail
+      - name: Deploy API to Fly.io (production)
+        working-directory: backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy -c fly.production.toml --local-only --yes
 
-            cd /opt/profitflow
+      - name: Fly logs (API/prod) on failure
+        if: ${{ failure() }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl logs -a profitflow-api-production --since 10m || true
 
-            docker pull ${{ env.IMAGE_BACKEND }}:${{ needs.resolve-tag.outputs.tag }}
-            docker pull ${{ env.IMAGE_FRONTEND }}:${{ needs.resolve-tag.outputs.tag }}
+      - name: Deploy UI to Fly.io (production)
+        working-directory: frontend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy -c fly.production.toml --local-only --yes
 
-            docker tag ${{ env.IMAGE_BACKEND }}:${{ needs.resolve-tag.outputs.tag }} \
-                       ${{ env.IMAGE_BACKEND }}:current
-            docker tag ${{ env.IMAGE_FRONTEND }}:${{ needs.resolve-tag.outputs.tag }} \
-                       ${{ env.IMAGE_FRONTEND }}:current
-
-            IMAGE_TAG=current docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            # Wait for health probe before declaring success
-            for i in {1..20}; do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || echo "000")
-              if [[ "$STATUS" == "200" ]]; then
-                echo "Production API is healthy (attempt $i)"
-                exit 0
-              fi
-              echo "Attempt $i: status=$STATUS — retrying..."
-              sleep 15
-            done
-            echo "Production health check failed after 5 minutes"
-            exit 1
+      - name: Fly logs (UI/prod) on failure
+        if: ${{ failure() }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl logs -a profitflow-ui-production --since 10m || true
 
       - name: Notify Slack — production deployed
         run: echo "Production deploy succeeded."
 
-  # ── Automatic rollback ─────────────────────────────────────────────────────
-  rollback-production:
-    name: "Auto-Rollback Production"
-    runs-on: ubuntu-latest
-    needs: deploy-production
-    if: failure()
-
-    steps:
-      - name: Rollback to previous image
-        uses: appleboy/ssh-action@v1
-        with:
-          host:     ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key:      ${{ secrets.PRODUCTION_SSH_KEY }}
-          script: |
-            set -euo pipefail
-
-            cd /opt/profitflow
-
-            PREV_TAG="${{ needs.deploy-production.outputs.previous_tag }}"
-            if [[ -z "$PREV_TAG" || "$PREV_TAG" == "unknown" ]]; then
-              echo "No previous tag recorded — cannot auto-rollback"
-              exit 1
-            fi
-
-            echo "Rolling back to $PREV_TAG"
-            docker tag ${{ env.IMAGE_BACKEND }}:$PREV_TAG ${{ env.IMAGE_BACKEND }}:current
-            docker tag ${{ env.IMAGE_FRONTEND }}:$PREV_TAG ${{ env.IMAGE_FRONTEND }}:current
-            IMAGE_TAG=current docker compose -f docker-compose.prod.yml up -d
-
-            echo "Rollback to $PREV_TAG completed"
-
-      - name: Notify Slack — rollback executed
-        run: echo "Rollback executed."
