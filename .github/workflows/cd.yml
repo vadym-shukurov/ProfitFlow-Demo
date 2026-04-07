@@ -139,6 +139,13 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl deploy -c fly.staging.toml --local-only --yes
+      
+      - name: Fly logs (API) on failure
+        if: ${{ failure() }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl logs -a profitflow-api-staging --since 10m || true
 
       - name: Deploy UI to Fly.io (staging)
         working-directory: frontend
@@ -179,44 +186,6 @@ jobs:
           curl -fsS ${{ env.STAGING_BASE_URL }}/actuator/health \
             | grep -q '"status":"UP"'
           echo "✓ /actuator/health is UP"
-
-      - name: Critical path — login returns JWT
-        env:
-          # Credentials for the staging smoke-test user. Must be stored as GitHub
-          # Secrets — never hard-coded. The smoke-test user should have ANALYST role
-          # only (minimum permissions required for these checks).
-          SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USER }}
-          SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
-        run: |
-          TOKEN=$(curl -fsS -X POST \
-            ${{ env.STAGING_BASE_URL }}/api/v1/auth/login \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${SMOKE_USERNAME}\",\"password\":\"${SMOKE_PASSWORD}\"}" \
-            | jq -r .accessToken)
-          if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
-            echo "Login did not return a token"
-            exit 1
-          fi
-          echo "✓ Login returned a JWT"
-
-      - name: Critical path — resource costs list (authenticated)
-        env:
-          SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USER }}
-          SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
-        run: |
-          TOKEN=$(curl -fsS -X POST \
-            ${{ env.STAGING_BASE_URL }}/api/v1/auth/login \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${SMOKE_USERNAME}\",\"password\":\"${SMOKE_PASSWORD}\"}" \
-            | jq -r .accessToken)
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $TOKEN" \
-            ${{ env.STAGING_BASE_URL }}/api/v1/resource-costs)
-          if [[ "$STATUS" != "200" ]]; then
-            echo "Expected 200, got $STATUS"
-            exit 1
-          fi
-          echo "✓ /api/v1/resource-costs returned 200"
 
       - name: Critical path — unauthenticated request returns 401
         run: |

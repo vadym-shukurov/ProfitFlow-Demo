@@ -9,6 +9,11 @@ primary_region = "ams"
   # Force Spring Boot to bind publicly; Fly health checks/proxy can't reach 127.0.0.1.
   # Use a JVM system property to avoid any env-var binding ambiguity.
   JAVA_TOOL_OPTIONS = "-Dserver.address=0.0.0.0"
+  # Use the in-memory DB profile for staging so the app boots without external Postgres.
+  # This avoids Fly deploy failures from missing DB secrets during early setup.
+  SPRING_PROFILES_ACTIVE = "e2e"
+  # Allow UI origin by default in staging.
+  ALLOWED_ORIGINS = "https://profitflow-ui-staging.fly.dev"
   # Do NOT set SPRING_PROFILES_ACTIVE=prod in staging; prod profile enforces stricter secret requirements.
   # Default profile + env-injected DB settings are sufficient for staging/demo.
 
