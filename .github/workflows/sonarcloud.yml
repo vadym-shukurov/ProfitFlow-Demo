@@ -150,3 +150,109 @@ jobs:
           args: >
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+
+      # Repo-wide enforcement (coverage + duplication) using Sonar as the source of truth.
+      # Note: This is intentionally separate from Sonar's server-side Quality Gate so
+      # forks and self-hosted instances can still enforce the policy consistently.
+      - name: Enforce repo quality thresholds (coverage + duplication)
+        if: steps.cfg.outputs.skip == 'false'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+        run: |
+          set -euo pipefail
+
+          # SonarCloud uses a different API host than sonar.host.url
+          if [ -n "${SONAR_HOST_URL:-}" ]; then
+            api_base="${SONAR_HOST_URL%/}"
+          else
+            api_base="https://sonarcloud.io"
+          fi
+
+          # Query on the PR branch when available; fall back to main branch for pushes.
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-main}}"
+
+          # Metrics:
+          # - coverage: overall test coverage ratio (0-100)
+          # - duplicated_lines_density: duplication percentage (0-100)
+          metrics="coverage,duplicated_lines_density,reliability_rating,security_rating,sqale_rating"
+
+          echo "Checking Sonar measures on ${api_base} for project=${SONAR_PROJECT_KEY} branch=${branch}"
+
+          export api_base branch metrics
+          python - <<'PY'
+          import json, os, sys, urllib.parse, urllib.request
+
+          api_base = os.environ["api_base"]
+          token = os.environ["SONAR_TOKEN"]
+          project = os.environ["SONAR_PROJECT_KEY"]
+          branch = os.environ.get("branch", "main")
+          metrics = os.environ["metrics"]
+
+          def get(url: str) -> dict:
+              req = urllib.request.Request(url)
+              auth = (token + ":").encode("utf-8")
+              import base64
+              req.add_header("Authorization", "Basic " + base64.b64encode(auth).decode("ascii"))
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode("utf-8"))
+
+          q = urllib.parse.urlencode({
+              "component": project,
+              "metricKeys": metrics,
+              "branch": branch,
+          })
+          url = f"{api_base}/api/measures/component?{q}"
+          data = get(url)
+
+          measures = {m["metric"]: m.get("value") for m in data["component"].get("measures", [])}
+
+          def f(metric: str):
+              v = measures.get(metric)
+              return float(v) if v is not None else None
+
+          coverage = f("coverage")
+          dup = f("duplicated_lines_density")
+          rel = f("reliability_rating")
+          sec = f("security_rating")
+          maint = f("sqale_rating")
+
+          print("Sonar measures:")
+          print("  coverage:", coverage)
+          print("  duplicated_lines_density:", dup)
+          print("  reliability_rating:", rel)
+          print("  security_rating:", sec)
+          print("  sqale_rating:", maint)
+
+          failures = []
+          if coverage is None:
+              failures.append("coverage metric missing")
+          elif coverage < 85.0:
+              failures.append(f"coverage {coverage:.2f}% < 85%")
+
+          if dup is None:
+              failures.append("duplicated_lines_density metric missing")
+          elif dup >= 5.0:
+              failures.append(f"duplication {dup:.2f}% >= 5%")
+
+          # Sonar ratings: 1.0=A ... 5.0=E
+          for metric, value in [
+              ("reliability_rating", rel),
+              ("security_rating", sec),
+              ("sqale_rating", maint),
+          ]:
+              if value is None:
+                  failures.append(f"{metric} missing")
+              elif value > 1.0:
+                  failures.append(f"{metric} is not A (value={value})")
+
+          if failures:
+              print("Quality threshold failures:")
+              for fmsg in failures:
+                  print(" -", fmsg)
+              sys.exit(1)
+
+          print("Quality thresholds met.")
+          PY

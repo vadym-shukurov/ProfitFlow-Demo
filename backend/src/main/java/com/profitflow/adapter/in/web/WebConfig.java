@@ -63,8 +63,9 @@ public class WebConfig {
     /**
      * Parses the raw comma-separated origin string into an array, always including
      * the localhost dev-server, and validating that no wildcard entries are present.
+     *
+     * <p>Package-private for unit tests in the same package.
      */
-    /** Package-private for unit tests in the same package. */
     static String[] buildOriginList(String rawOrigins) {
         List<String> origins = new ArrayList<>();
         // nosemgrep: html.security.plaintext-http-link.plaintext-http-link — ng serve uses http on loopback only
