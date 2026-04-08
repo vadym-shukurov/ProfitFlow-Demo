@@ -12,9 +12,8 @@ import {
   ResourceCostDto,
 } from '../models/api.models';
 
-type RowId = string;
-type ResourceActivityRuleRowVm = ResourceActivityRuleDto & { rowId: RowId };
-type ActivityProductRuleRowVm = ActivityProductRuleDto & { rowId: RowId };
+type ResourceActivityRuleRowVm = ResourceActivityRuleDto & { rowId: string };
+type ActivityProductRuleRowVm = ActivityProductRuleDto & { rowId: string };
 
 /**
  * Signal-based store for the Allocation Rules page.
@@ -269,7 +268,7 @@ export class AllocationRulesStore {
     );
   }
 
-  private newRowId(): RowId {
+  private newRowId(): string {
     this.rowIdSeq += 1;
     return `rule-row-${this.rowIdSeq}`;
   }
