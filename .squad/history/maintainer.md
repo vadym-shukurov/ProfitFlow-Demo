@@ -1,5 +1,9 @@
 ## Maintainer agent history
 
+- **2026-04-08**: Patched Dependabot GHSA-chqc-8p9q-pq6q (`basic-ftp` CRLF injection) in e2e
+ - **Change**: Added npm `overrides.basic-ftp` `5.2.1` in `e2e/package.json`; regenerated `e2e/package-lock.json` (transitive via `@lhci/cli`).
+ - **Tests**: `cd e2e && npm install`; `cd e2e && npm run typecheck` (pass); `npm audit` reported 0 vulnerabilities after install.
+ - **Risk/Follow-ups**: Remove override when `@lhci/cli` pulls `basic-ftp` ≥ 5.2.1 by default.
 - **2026-04-08**: Documented one-command local run
  - **Change**:
    - Added `docker-compose.app.yml` overlay + `scripts/dev-up.sh` for full-stack `docker compose up -d --build`.

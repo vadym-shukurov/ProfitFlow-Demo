@@ -19,6 +19,7 @@
     "typescript": "^5.4.5"
   },
   "overrides": {
+    "basic-ftp": "5.2.1",
     "tmp": "0.2.5"
   }
 }
