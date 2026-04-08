@@ -142,6 +142,32 @@ describe('AllocationRulesStore', () => {
       httpMock.expectNone('/api/v1/rules/activity-to-product');
       expect(notify.warning).toHaveBeenCalled();
     });
+
+    it('shows warning when driverWeight is a boolean false (normalised to 0)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      store.activityProductRules.set([
+        { activityId: 'a1', productId: 'p1', driverWeight: false as any },
+      ]);
+
+      store.saveActivityProductRules();
+
+      httpMock.expectNone('/api/v1/rules/activity-to-product');
+      expect(notify.warning).toHaveBeenCalled();
+      expect(store.error()).toContain('driver weight must be a positive number');
+    });
+
+    it('accepts numeric IDs (normalised to strings) and proceeds to PUT', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      store.activityProductRules.set([
+        { activityId: 123 as any, productId: 456 as any, driverWeight: 1 },
+      ]);
+
+      store.saveActivityProductRules();
+      httpMock.expectOne('/api/v1/rules/activity-to-product').flush(null);
+      flushLoadAll();
+
+      expect(notify.success).toHaveBeenCalledWith('Activity → Product rules saved.');
+    });
   });
 
   // ── In-memory editing helpers ─────────────────────────────────────────────
