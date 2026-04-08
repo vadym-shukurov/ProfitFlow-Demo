@@ -93,8 +93,7 @@ jobs:
 
       # Build Java before Sonar: verify → classes + JaCoCo XML; copy-dependencies → JARs for
       # sonar.java.libraries (compile + test + provided so main and test sources resolve types).
-      # With skipITs, branch coverage is slightly below the pom's 75% JaCoCo gate — main CI still
-      # enforces thresholds on full verify -DskipITs=false. Here we only need XML for Sonar.
+      # Note: This job runs without Docker dependencies by default (skip ITs).
       - name: Backend verify + JaCoCo report
         if: steps.cfg.outputs.skip == 'false'
         working-directory: backend
