@@ -129,6 +129,16 @@ export class ShellLayoutComponent {
       description: 'Resource costs & CSV import',
     },
     {
+      path: '/activities',
+      label: 'Activities',
+      description: 'Manage activity catalogue',
+    },
+    {
+      path: '/products',
+      label: 'Products',
+      description: 'Manage product catalogue',
+    },
+    {
       path: '/rules',
       label: 'Allocation Rules',
       description: 'Drivers & stage mappings',

@@ -1,0 +1,31 @@
+services:
+  profitflow-api:
+    build:
+      context: ./backend
+    container_name: profitflow-api
+    environment:
+      # Spring Boot datasource (container-to-container networking)
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-profitflow}
+      DB_USERNAME: ${POSTGRES_USER:-profitflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8080
+      # Local SPA origin(s)
+      ALLOWED_ORIGINS: http://127.0.0.1:4200,http://localhost:4200
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  profitflow-ui:
+    build:
+      context: ./frontend
+      args:
+        NGINX_CONF: nginx.local.conf
+    container_name: profitflow-ui
+    depends_on:
+      - profitflow-api
+    ports:
+      # Keep the familiar Angular dev port, but served by nginx
+      - "127.0.0.1:4200:8080"
+

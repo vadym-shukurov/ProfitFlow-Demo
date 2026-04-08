@@ -1,5 +1,11 @@
 ## Maintainer agent history
 
+- **2026-04-08**: Documented one-command local run
+ - **Change**:
+   - Added `docker-compose.app.yml` overlay + `scripts/dev-up.sh` for full-stack `docker compose up -d --build`.
+   - Updated root `README.md` with explicit local run options, required `.env` fields, and lifecycle commands.
+ - **Tests**: `cd backend && mvn verify -DskipITs=true`; `cd frontend && npm run build -- --configuration=production` (pass)
+ - **Risk/Follow-ups**: Docker required for Option C; ensure `POSTGRES_PASSWORD`/`DB_PASSWORD` set in `.env`.
 - 2026-04-06: Initialized agent charter and repo-native memory.
 - 2026-04-06: Improved local testability on newer JDKs (e.g., 25):
   - Forced Mockito to use subclass mock maker via `backend/src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`.

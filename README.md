@@ -5,6 +5,12 @@ It runs a two-stage Activity‑Based Costing (ABC) allocation and visualizes the
 
 - **Flow**: Resources (GL spend) → Activities (drivers) → Products/Services (unit economics)
 
+## Latest updates
+
+- **Activities & Products can now be created in the UI** (new catalogue pages under `/activities` and `/products`).
+- **One-command local run (Docker)**: `./scripts/dev-up.sh` (Postgres + API + UI + monitoring).
+- **One-command full checks**: `./scripts/check-all.sh` (backend + frontend + e2e).
+
 ## Table of contents
 
 1. [Why this product exists](#why-this-product-exists-pm-overview)
@@ -60,13 +66,36 @@ ProfitFlow helps finance leaders:
 
 ### Run the app (frontend + backend)
 
-Start services (Postgres and any monitoring stack defined in compose):
+You have three supported local setups:
+
+- **Option A (fastest, no Docker)**: run the backend with the `local` Spring profile (H2 in-memory DB).
+- **Option B (recommended parity)**: run Postgres via `docker compose` and use `.env` variables.
+- **Option C (one command, Docker)**: run Postgres + API + UI via a compose overlay.
+
+#### Option A — backend on H2 (no external database)
+
+Run backend (H2, schema auto-created on startup):
+
+```bash
+cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+API will be on `http://127.0.0.1:8080`.
+
+#### Option B — backend on Postgres (Docker)
+
+Start services (Postgres + monitoring stack defined in compose):
 
 ```bash
 cp .env.example .env
 # edit .env (POSTGRES_PASSWORD is required)
 docker compose up -d
 ```
+
+Minimal `.env` values you must set for local Postgres:
+
+- **`POSTGRES_PASSWORD`** (required by Compose)
+- **`DB_PASSWORD`** (must match `POSTGRES_PASSWORD` for the default local setup)
 
 Run backend:
 
@@ -81,6 +110,32 @@ cd frontend && npm install && npx ng serve --host 127.0.0.1 --port 4200
 ```
 
 Open `http://127.0.0.1:4200`.
+
+#### Option C — full stack via Docker Compose (single command)
+
+```bash
+cp .env.example .env
+# edit .env (POSTGRES_PASSWORD is required)
+./scripts/dev-up.sh
+```
+
+This brings up:
+
+- **UI**: `http://127.0.0.1:4200`
+- **API**: `http://127.0.0.1:8080`
+- **Postgres**: `127.0.0.1:5432` (loopback-only)
+- **Prometheus**: `http://127.0.0.1:9090`
+- **Grafana**: `http://127.0.0.1:3001` (user `admin`, password `GF_ADMIN_PASSWORD` or default `profitflow`)
+
+Common lifecycle commands:
+
+```bash
+# Stop containers
+docker compose -f docker-compose.yml -f docker-compose.app.yml down
+
+# Stop + wipe DB volume (fresh start)
+docker compose -f docker-compose.yml -f docker-compose.app.yml down -v
+```
 
 ### Demo credentials
 
@@ -245,6 +300,14 @@ From `docker-compose.yml`:
 ---
 
 ## Testing
+
+### Run everything (single command)
+
+If you have **Docker** available (for backend ITs + E2E) and **Chrome** available (for Angular unit tests), you can run the full local check suite with:
+
+```bash
+./scripts/check-all.sh
+```
 
 ### Backend
 

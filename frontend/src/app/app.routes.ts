@@ -28,6 +28,16 @@ export const routes: Routes = [
           import('./pages/cost-ledger.page').then(m => m.CostLedgerPage),
       },
       {
+        path: 'activities',
+        loadComponent: () =>
+          import('./pages/activities.page').then(m => m.ActivitiesPage),
+      },
+      {
+        path: 'products',
+        loadComponent: () =>
+          import('./pages/products.page').then(m => m.ProductsPage),
+      },
+      {
         path: 'rules',
         loadComponent: () =>
           import('./pages/allocation-rules.page').then(m => m.AllocationRulesPage),

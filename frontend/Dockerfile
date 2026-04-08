@@ -46,7 +46,8 @@ COPY --from=builder --chown=root:root --chmod=555 /app/dist/frontend/browser /tm
 RUN chown -R nginx:nginx /tmp/nginx/html
 
 # Hardened nginx configuration — world-readable; nginx runs unprivileged (docker:S6504).
-COPY --chown=root:root --chmod=444 nginx.conf /etc/nginx/conf.d/default.conf
+ARG NGINX_CONF=nginx.conf
+COPY --chown=root:root --chmod=444 ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
