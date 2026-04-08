@@ -4,6 +4,11 @@ primary_region = "ams"
 [build]
   dockerfile = "Dockerfile"
 
+# Override image ENTRYPOINT+CMD as a single argv vector so Fly does not merge duplicates
+# (see machine log: /docker-entrypoint.sh /docker-entrypoint.sh nginx ... nginx ...).
+[experimental]
+exec = ["/docker-entrypoint.sh", "nginx", "-g", "daemon off;"]
+
 [http_service]
   internal_port = 8080
   force_https = true

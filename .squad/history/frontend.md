@@ -17,3 +17,8 @@
  - **Tests**: `cd frontend && npx tsc --noEmit && npx ng test --watch=false --browsers=ChromeHeadless --code-coverage && npm run build -- --configuration=production` (pass)
  - **Risk/Follow-ups**: none
 
+- **2026-04-09**: Fix Fly UI crash loop (duplicate entrypoint/cmd merge)
+ - **Change**: Set `[experimental] exec` in `fly.staging.toml` and `fly.production.toml` so Machines run `/docker-entrypoint.sh nginx -g daemon off;` once (avoids `nginx: invalid option: "nginx"`).
+ - **Tests**: none (config-only)
+ - **Risk/Follow-ups**: Redeploy UI app; if Fly promotes a non-experimental knob for `exec`, migrate when documented.
+
