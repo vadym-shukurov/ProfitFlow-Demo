@@ -1,2 +1,2 @@
-semgrep
+semgrep==1.157.0
 

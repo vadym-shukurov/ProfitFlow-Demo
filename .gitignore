@@ -1,5 +1,8 @@
 # OS
 .DS_Store
+
+# Local Maven repo used for CI-like runs in restricted environments
+.m2-repo/
 Thumbs.db
 
 # Cursor / local agent debug logs (do not commit)

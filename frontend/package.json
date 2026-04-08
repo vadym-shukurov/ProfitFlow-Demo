@@ -45,6 +45,8 @@
     "typescript": "^5.9.0"
   },
   "overrides": {
+    "@hono/node-server": "1.19.13",
+    "hono": "4.12.12",
     "vite": "7.3.2"
   }
 }
