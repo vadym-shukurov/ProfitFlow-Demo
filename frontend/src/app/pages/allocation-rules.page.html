@@ -16,7 +16,6 @@
   @if (rules.loading()) {
     <p class="text-sm text-content-muted">Loading catalog and rules…</p>
   } @else {
-
     <!-- Stage 1: Resource → Activity -->
     <section class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -54,13 +53,13 @@
             </tr>
           </thead>
           <tbody class="pf-tbody">
-            @for (row of rules.resourceActivityRules(); track $index) {
+            @for (row of rules.resourceActivityRules(); track row.rowId) {
               <tr>
                 <td class="pf-td-sm">
                   <select
                     class="pf-select min-w-[12rem]"
-                    [value]="row.resourceId"
-                    (change)="rules.patchResourceActivityRow($index, { resourceId: $any($event.target).value })"
+                    [ngModel]="row.resourceId"
+                    (ngModelChange)="rules.patchResourceActivityRow($index, { resourceId: $event })"
                   >
                     <option value="">Select resource</option>
                     @for (r of rules.resources(); track r.id) {
@@ -71,8 +70,8 @@
                 <td class="pf-td-sm">
                   <select
                     class="pf-select min-w-[12rem]"
-                    [value]="row.activityId"
-                    (change)="rules.patchResourceActivityRow($index, { activityId: $any($event.target).value })"
+                    [ngModel]="row.activityId"
+                    (ngModelChange)="rules.patchResourceActivityRow($index, { activityId: $event })"
                   >
                     <option value="">Select activity</option>
                     @for (a of rules.activities(); track a.id) {
@@ -84,7 +83,7 @@
                   <input
                     class="pf-input-compact"
                     type="number"
-                    min="0"
+                    min="0.0001"
                     step="0.0001"
                     [value]="row.driverWeight"
                     (input)="rules.patchResourceActivityRow($index, { driverWeight: num($any($event.target).value) })"
@@ -143,13 +142,13 @@
             </tr>
           </thead>
           <tbody class="pf-tbody">
-            @for (row of rules.activityProductRules(); track $index) {
+            @for (row of rules.activityProductRules(); track row.rowId) {
               <tr>
                 <td class="pf-td-sm">
                   <select
                     class="pf-select min-w-[12rem]"
-                    [value]="row.activityId"
-                    (change)="rules.patchActivityProductRow($index, { activityId: $any($event.target).value })"
+                    [ngModel]="row.activityId"
+                    (ngModelChange)="rules.patchActivityProductRow($index, { activityId: $event })"
                   >
                     <option value="">Select activity</option>
                     @for (a of rules.activities(); track a.id) {
@@ -160,8 +159,8 @@
                 <td class="pf-td-sm">
                   <select
                     class="pf-select min-w-[12rem]"
-                    [value]="row.productId"
-                    (change)="rules.patchActivityProductRow($index, { productId: $any($event.target).value })"
+                    [ngModel]="row.productId"
+                    (ngModelChange)="rules.patchActivityProductRow($index, { productId: $event })"
                   >
                     <option value="">Select product</option>
                     @for (p of rules.products(); track p.id) {
@@ -173,7 +172,7 @@
                   <input
                     class="pf-input-compact"
                     type="number"
-                    min="0"
+                    min="0.0001"
                     step="0.0001"
                     [value]="row.driverWeight"
                     (input)="rules.patchActivityProductRow($index, { driverWeight: num($any($event.target).value) })"

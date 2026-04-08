@@ -194,7 +194,7 @@ export class CfoDashboardStore {
           this.loadCatalogs();
         },
         error: (err: HttpErrorResponse) => {
-          const msg = readApiErrorMessage(err);
+          const msg = this.formatRunAllocationError(err);
           this.error.set(msg);
           this.notify.error(msg);
         },
@@ -214,5 +214,32 @@ export class CfoDashboardStore {
     for (const a of this.activities()) map.set(`ACTIVITY:${a.id}`,  a.name);
     for (const p of this.products())   map.set(`PRODUCT:${p.id}`,   p.name);
     return map;
+  }
+
+  private formatRunAllocationError(err: HttpErrorResponse): string {
+    const raw = readApiErrorMessage(err);
+    // Backend currently throws a domain error with activity IDs when stage-2 rules are missing.
+    // Improve UX by mapping IDs to human-readable activity names + giving a concrete next step.
+    if (err.status === 422 && /targeted by resource rules/i.test(raw) && /product allocation rules/i.test(raw)) {
+      const uuids = raw.match(
+        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+      ) ?? [];
+
+      if (uuids.length === 0) {
+        return `Allocation can’t run yet: some activities referenced by Resource → Activity rules don’t have any Activity → Product rules. Please add those rules and try again.`;
+      }
+
+      const activityNameById = new Map(this.activities().map(a => [a.id, a.name] as const));
+      const names = [...new Set(uuids)].map(id => activityNameById.get(id) ?? id);
+
+      const list =
+        names.length <= 3
+          ? names.join(', ')
+          : `${names.slice(0, 3).join(', ')} (+${names.length - 3} more)`;
+
+      return `Allocation can’t run yet: add Activity → Product rules for ${list}. (Go to “Allocation rules”, map each activity to at least one product, then run allocation again.)`;
+    }
+
+    return raw;
   }
 }

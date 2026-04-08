@@ -12,6 +12,10 @@ import {
   ResourceCostDto,
 } from '../models/api.models';
 
+type RowId = string;
+type ResourceActivityRuleRowVm = ResourceActivityRuleDto & { rowId: RowId };
+type ActivityProductRuleRowVm = ActivityProductRuleDto & { rowId: RowId };
+
 /**
  * Signal-based store for the Allocation Rules page.
  *
@@ -33,15 +37,21 @@ export class AllocationRulesStore {
   readonly activities           = signal<ActivityDto[]>([]);
   readonly products             = signal<ProductDto[]>([]);
   readonly resources            = signal<ResourceCostDto[]>([]);
-  readonly resourceActivityRules = signal<ResourceActivityRuleDto[]>([]);
-  readonly activityProductRules  = signal<ActivityProductRuleDto[]>([]);
+  readonly resourceActivityRules = signal<ResourceActivityRuleRowVm[]>([]);
+  readonly activityProductRules  = signal<ActivityProductRuleRowVm[]>([]);
   readonly loading              = signal(false);
   readonly saving               = signal(false);
   readonly error                = signal<string | null>(null);
 
+  private rowIdSeq = 0;
+  private loadedOnce = false;
+
   /** Loads all reference data and rule sets in a single parallel batch. */
-  loadAll(): void {
-    this.loading.set(true);
+  loadAll(opts?: { silent?: boolean }): void {
+    const silent = opts?.silent === true;
+    if (!silent) {
+      this.loading.set(true);
+    }
     this.error.set(null);
     forkJoin({
       activities: this.http.get<ActivityDto[]>('/api/v1/activities'),
@@ -50,14 +60,18 @@ export class AllocationRulesStore {
       ra:         this.http.get<ResourceActivityRuleDto[]>('/api/v1/rules/resource-to-activity'),
       ap:         this.http.get<ActivityProductRuleDto[]>('/api/v1/rules/activity-to-product'),
     })
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => !silent && this.loading.set(false)))
       .subscribe({
         next: bundle => {
+          const prevRa = this.resourceActivityRules();
+          const prevAp = this.activityProductRules();
+
           this.activities.set(bundle.activities);
           this.products.set(bundle.products);
           this.resources.set(bundle.resources);
-          this.resourceActivityRules.set(bundle.ra);
-          this.activityProductRules.set(bundle.ap);
+          this.resourceActivityRules.set(this.rehydrateResourceActivityRows(bundle.ra, prevRa));
+          this.activityProductRules.set(this.rehydrateActivityProductRows(bundle.ap, prevAp));
+          this.loadedOnce = true;
         },
         error: (err: HttpErrorResponse) => {
           const msg = readApiErrorMessage(err);
@@ -65,6 +79,17 @@ export class AllocationRulesStore {
           this.notify.error(msg);
         },
       });
+  }
+
+  /**
+   * Loads data only the first time the page is visited. This keeps in-progress
+   * edits (dropdown selections, weights) when navigating away and back.
+   */
+  ensureLoaded(): void {
+    if (this.loadedOnce) {
+      return;
+    }
+    this.loadAll();
   }
 
   /**
@@ -85,12 +110,16 @@ export class AllocationRulesStore {
     this.saving.set(true);
     this.error.set(null);
     this.http
-      .put<void>('/api/v1/rules/resource-to-activity', this.resourceActivityRules())
+      .put<void>(
+        '/api/v1/rules/resource-to-activity',
+        this.resourceActivityRules().map(({ rowId: _rowId, ...dto }) => dto),
+      )
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
           this.notify.success('Resource → Activity rules saved.');
-          this.loadAll();
+          this.warnIfMissingProductAllocationRules();
+          this.loadAll({ silent: true });
           onDone?.();
         },
         error: (err: HttpErrorResponse) => {
@@ -119,12 +148,15 @@ export class AllocationRulesStore {
     this.saving.set(true);
     this.error.set(null);
     this.http
-      .put<void>('/api/v1/rules/activity-to-product', this.activityProductRules())
+      .put<void>(
+        '/api/v1/rules/activity-to-product',
+        this.activityProductRules().map(({ rowId: _rowId, ...dto }) => dto),
+      )
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
           this.notify.success('Activity → Product rules saved.');
-          this.loadAll();
+          this.loadAll({ silent: true });
           onDone?.();
         },
         error: (err: HttpErrorResponse) => {
@@ -139,7 +171,8 @@ export class AllocationRulesStore {
 
   addResourceActivityDraft(): void {
     this.resourceActivityRules.update(rows => [
-      ...rows, { resourceId: '', activityId: '', driverWeight: 1 },
+      ...rows,
+      { rowId: this.newRowId(), resourceId: '', activityId: '', driverWeight: 1 },
     ]);
   }
 
@@ -155,7 +188,8 @@ export class AllocationRulesStore {
 
   addActivityProductDraft(): void {
     this.activityProductRules.update(rows => [
-      ...rows, { activityId: '', productId: '', driverWeight: 1 },
+      ...rows,
+      { rowId: this.newRowId(), activityId: '', productId: '', driverWeight: 1 },
     ]);
   }
 
@@ -213,5 +247,58 @@ export class AllocationRulesStore {
       }
     }
     return null;
+  }
+
+  private warnIfMissingProductAllocationRules(): void {
+    const targetedActivityIds = new Set(this.resourceActivityRules().map(r => r.activityId).filter(Boolean));
+    if (targetedActivityIds.size === 0) return;
+
+    const coveredActivityIds = new Set(this.activityProductRules().map(r => r.activityId).filter(Boolean));
+    const missingIds = [...targetedActivityIds].filter(id => !coveredActivityIds.has(id));
+    if (missingIds.length === 0) return;
+
+    const activityNameById = new Map(this.activities().map(a => [a.id, a.name] as const));
+    const names = missingIds.map(id => activityNameById.get(id) ?? id);
+    const list =
+      names.length <= 3
+        ? names.join(', ')
+        : `${names.slice(0, 3).join(', ')} (+${names.length - 3} more)`;
+
+    this.notify.warning(
+      `Heads up: Allocation will fail until you add Activity → Product rules for ${list}.`,
+    );
+  }
+
+  private newRowId(): RowId {
+    this.rowIdSeq += 1;
+    return `rule-row-${this.rowIdSeq}`;
+  }
+
+  private rehydrateResourceActivityRows(
+    serverRows: ResourceActivityRuleDto[],
+    prevRows: ResourceActivityRuleRowVm[],
+  ): ResourceActivityRuleRowVm[] {
+    const key = (r: Pick<ResourceActivityRuleDto, 'resourceId' | 'activityId'>) =>
+      `${r.resourceId}::${r.activityId}`;
+    const prevByKey = new Map(prevRows.map(r => [key(r), r.rowId] as const));
+
+    return serverRows.map(r => ({
+      ...r,
+      rowId: prevByKey.get(key(r)) ?? this.newRowId(),
+    }));
+  }
+
+  private rehydrateActivityProductRows(
+    serverRows: ActivityProductRuleDto[],
+    prevRows: ActivityProductRuleRowVm[],
+  ): ActivityProductRuleRowVm[] {
+    const key = (r: Pick<ActivityProductRuleDto, 'activityId' | 'productId'>) =>
+      `${r.activityId}::${r.productId}`;
+    const prevByKey = new Map(prevRows.map(r => [key(r), r.rowId] as const));
+
+    return serverRows.map(r => ({
+      ...r,
+      rowId: prevByKey.get(key(r)) ?? this.newRowId(),
+    }));
   }
 }

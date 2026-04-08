@@ -51,6 +51,7 @@ ProfitFlow helps finance leaders:
 - **Allocation Rules**:
   - **Stage 1**: Resource → Activity (driver weights)
   - **Stage 2**: Activity → Product (driver weights)
+  - Includes guardrails: validates positive weights and warns when Stage 1 targets activities missing any Stage 2 rules (so you can fix configuration before running allocation).
 - **AI Allocator (mock)**: demonstrates how suggestion workflows can be integrated without coupling the domain to an LLM.
 - **Observability**: Prometheus metrics + Grafana dashboards (local stack under `monitoring/`).
 

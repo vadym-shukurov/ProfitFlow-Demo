@@ -47,6 +47,16 @@ describe('readApiErrorMessage', () => {
     expect(readApiErrorMessage(err)).toContain('unexpected server error');
   });
 
+  it('returns 404 user-friendly message for status 404 when body is empty', () => {
+    const err = makeError(404, null);
+    expect(readApiErrorMessage(err)).toContain('not found');
+  });
+
+  it('returns 503 user-friendly message for status 503 when body is empty', () => {
+    const err = makeError(503, null);
+    expect(readApiErrorMessage(err)).toContain('maintenance');
+  });
+
   it('falls back to Angular error message for unknown status', () => {
     const err = makeError(418, null);
     // 418 has no mapping; falls back to err.message
