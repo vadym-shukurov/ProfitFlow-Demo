@@ -9,3 +9,8 @@
  - **Tests**: `cd backend && mvn verify -DskipITs=true` (pass)
  - **Risk/Follow-ups**: none
 
+- **2026-04-09**: Keep staging API machine always running
+ - **Change**: Set `min_machines_running = 1` in `backend/fly.staging.toml` to avoid scale-to-zero.
+ - **Tests**: none (config-only)
+ - **Risk/Follow-ups**: Slightly higher baseline cost for staging; adjust if needed.
+
