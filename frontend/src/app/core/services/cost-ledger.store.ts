@@ -42,6 +42,9 @@ export class CostLedgerStore {
   /** `true` while a POST/import request is in flight. */
   readonly saving = signal(false);
 
+  /** Resource-cost IDs currently being deleted (for per-row disabling/spinners). */
+  readonly deletingIds = signal<Set<string>>(new Set());
+
   /** Last API error message for inline display, or `null` when no error is present. */
   readonly error = signal<string | null>(null);
 
@@ -120,6 +123,31 @@ export class CostLedgerStore {
           this.notify.success(`Imported ${count} ${noun} successfully.`);
           this.load();
           onSuccess?.();
+        },
+        error: (err: HttpErrorResponse) => {
+          const msg = readApiErrorMessage(err);
+          this.error.set(msg);
+          this.notify.error(msg);
+        },
+      });
+  }
+
+  /** Deletes a resource cost and refreshes the list on success. */
+  delete(id: string, label?: string): void {
+    if (!id) return;
+    this.error.set(null);
+    this.deletingIds.update(prev => new Set(prev).add(id));
+    this.http
+      .delete<void>(`/api/v1/resource-costs/${encodeURIComponent(id)}`)
+      .pipe(finalize(() => this.deletingIds.update(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      })))
+      .subscribe({
+        next: () => {
+          this.notify.success(label ? `Cost "${label}" removed.` : 'Cost removed.');
+          this.load();
         },
         error: (err: HttpErrorResponse) => {
           const msg = readApiErrorMessage(err);

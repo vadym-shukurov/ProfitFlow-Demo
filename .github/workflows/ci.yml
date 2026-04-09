@@ -182,7 +182,7 @@ jobs:
           paths: backend/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 85
-          min-coverage-changed-files: 80
+          min-coverage-changed-files: 85
           title: "Code Coverage Report"
           update-comment: true
 
@@ -223,6 +223,16 @@ jobs:
       # Run unit tests headlessly — Karma/Jasmine suite enforced as a CI gate
       - name: Unit tests + coverage thresholds (headless Chrome)
         run: npx ng test --watch=false --browsers=ChromeHeadless --no-progress --code-coverage
+
+      - name: Enforce 85% coverage on changed frontend files
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          node ../scripts/coverage/check-lcov-changed-files.mjs \
+            --base "origin/${{ github.base_ref }}" \
+            --lcov "coverage/**/lcov.info" \
+            --min 85
 
       # Upload Karma HTML/JSON coverage for PR review
       - name: Upload frontend coverage report

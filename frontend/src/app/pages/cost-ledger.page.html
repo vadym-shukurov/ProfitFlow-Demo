@@ -119,6 +119,7 @@
               <th class="pf-th">Amount</th>
               <th class="pf-th">Currency</th>
               <th class="pf-th font-mono text-xs normal-case">ID</th>
+              <th class="pf-th text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="pf-tbody">
@@ -130,6 +131,16 @@
                 </td>
                 <td class="pf-td text-content-body">{{ row.currencyCode }}</td>
                 <td class="pf-td font-mono text-xs text-content-muted">{{ row.id }}</td>
+                <td class="pf-td text-right">
+                  <button
+                    type="button"
+                    class="pf-btn-link text-red-600"
+                    (click)="removeCost(row.id, row.label)"
+                    [disabled]="ledger.deletingIds().has(row.id) || ledger.saving()"
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
             }
           </tbody>

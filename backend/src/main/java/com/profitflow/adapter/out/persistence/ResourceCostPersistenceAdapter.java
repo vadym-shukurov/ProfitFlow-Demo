@@ -6,6 +6,7 @@ import com.profitflow.domain.ResourceCost;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class ResourceCostPersistenceAdapter implements ResourceCostRepositoryPort {
@@ -22,8 +23,18 @@ public class ResourceCostPersistenceAdapter implements ResourceCostRepositoryPor
     }
 
     @Override
+    public boolean existsById(String id) {
+        return repository.existsById(UUID.fromString(id));
+    }
+
+    @Override
     public ResourceCost save(ResourceCost resourceCost) {
         return PersistenceMapper.toResourceCost(
                 repository.save(PersistenceMapper.toResourceCostEntity(resourceCost)));
+    }
+
+    @Override
+    public void deleteById(String id) {
+        repository.deleteById(UUID.fromString(id));
     }
 }

@@ -15,6 +15,9 @@ public interface ResourceCostRepositoryPort {
     /** Returns all persisted resource costs ordered by the repository's default sort. */
     List<ResourceCost> findAll();
 
+    /** Returns {@code true} if a resource cost with the given ID exists. */
+    boolean existsById(String id);
+
     /**
      * Persists a new or updated resource cost.
      *
@@ -22,4 +25,7 @@ public interface ResourceCostRepositoryPort {
      * @return the saved resource cost (may be a new instance with a generated ID)
      */
     ResourceCost save(ResourceCost resourceCost);
+
+    /** Deletes a resource cost by ID. Implementations should throw if the ID is invalid. */
+    void deleteById(String id);
 }

@@ -1,6 +1,8 @@
 package com.profitflow.application.service;
 
 import com.profitflow.application.exception.InvalidInputException;
+import com.profitflow.application.exception.ResourceConflictException;
+import com.profitflow.application.exception.ResourceNotFoundException;
 import com.profitflow.application.port.in.ResourceCostUseCase;
 import com.profitflow.application.port.out.ResourceCostRepositoryPort;
 import com.profitflow.domain.Money;
@@ -13,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -189,6 +192,40 @@ class ResourceCostServiceTest {
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         service.createCost("Office", new BigDecimal("500"), "USD");
         verify(metrics).recordCostCreated();
+    }
+
+    // -------------------------------------------------------------------------
+    // deleteCost
+    // -------------------------------------------------------------------------
+
+    @Test
+    void deleteCostRejectsBlankId() {
+        assertThatThrownBy(() -> service.deleteCost("  "))
+                .isInstanceOf(InvalidInputException.class);
+    }
+
+    @Test
+    void deleteCostThrowsNotFoundWhenMissing() {
+        when(repository.existsById("missing")).thenReturn(false);
+        assertThatThrownBy(() -> service.deleteCost("missing"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void deleteCostDelegatesToRepositoryWhenExists() {
+        when(repository.existsById("id-1")).thenReturn(true);
+        service.deleteCost("id-1");
+        verify(repository).deleteById("id-1");
+    }
+
+    @Test
+    void deleteCostMapsIntegrityViolationToConflict() {
+        when(repository.existsById("id-1")).thenReturn(true);
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("fk"))
+                .when(repository).deleteById("id-1");
+
+        assertThatThrownBy(() -> service.deleteCost("id-1"))
+                .isInstanceOf(ResourceConflictException.class);
     }
 
     // -------------------------------------------------------------------------

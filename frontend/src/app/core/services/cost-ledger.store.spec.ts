@@ -96,4 +96,25 @@ describe('CostLedgerStore', () => {
       expect(notify.success).toHaveBeenCalledWith(jasmine.stringContaining('2 costs'));
     });
   });
+
+  describe('delete()', () => {
+    it('calls DELETE and refreshes list on success', () => {
+      store.delete('id-1', 'Servers');
+
+      httpMock.expectOne({ method: 'DELETE', url: '/api/v1/resource-costs/id-1' }).flush(null);
+      httpMock.expectOne({ method: 'GET', url: '/api/v1/resource-costs' }).flush(mockCosts);
+
+      expect(notify.success).toHaveBeenCalledWith(jasmine.stringContaining('removed'));
+    });
+
+    it('sets error on failure', () => {
+      store.delete('id-1', 'Servers');
+
+      httpMock.expectOne('/api/v1/resource-costs/id-1')
+        .flush({ message: 'In use' }, { status: 409, statusText: 'Conflict' });
+
+      expect(store.error()).toBeTruthy();
+      expect(notify.error).toHaveBeenCalled();
+    });
+  });
 });

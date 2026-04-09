@@ -382,6 +382,8 @@ Push to `main` / open a PR (within the workflow path filters) or run manually (*
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/allocations/run`
+- `GET/POST/DELETE /api/v1/resource-costs`
+- `POST /api/v1/resource-costs/import` (CSV body, `Content-Type: text/plain`, max 1 MiB)
 - `GET/PUT /api/v1/rules/resource-to-activity`
 - `GET/PUT /api/v1/rules/activity-to-product`
 

@@ -28,6 +28,17 @@ public interface ResourceCostUseCase {
     ResourceCost createCost(String label, BigDecimal amount, String currencyCode);
 
     /**
+     * Deletes a resource cost entry.
+     *
+     * @param id resource cost ID
+     * @throws com.profitflow.application.exception.ResourceNotFoundException
+     *         if the resource cost does not exist
+     * @throws com.profitflow.application.exception.ResourceConflictException
+     *         if the resource cost is referenced by other records
+     */
+    void deleteCost(String id);
+
+    /**
      * Bulk-imports resource costs from CSV content.
      *
      * <p>Rows with leading formula-injection characters ({@code =}, {@code +},

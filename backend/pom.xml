@@ -371,7 +371,6 @@
                 <version>${pmd.version}</version>
                 <configuration>
                     <linkXRef>false</linkXRef>
-                    <sourceEncoding>${project.build.sourceEncoding}</sourceEncoding>
                     <minimumTokens>100</minimumTokens>
                     <targetJdk>${java.version}</targetJdk>
                     <printFailingErrors>true</printFailingErrors>

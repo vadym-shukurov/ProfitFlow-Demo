@@ -52,4 +52,10 @@ export class CostLedgerPage implements OnInit {
     this.ledger.error.set(null);
     this.ledger.importCsv(this.csvDraft(), () => this.csvDraft.set(''));
   }
+
+  protected removeCost(id: string, label: string): void {
+    const ok = window.confirm(`Remove cost "${label}"? This cannot be undone.`);
+    if (!ok) return;
+    this.ledger.delete(id, label);
+  }
 }

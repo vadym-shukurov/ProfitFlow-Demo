@@ -31,6 +31,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -187,5 +188,25 @@ class ResourceCostControllerTest {
                 .andExpect(status().isCreated());
 
         verify(resourceCostUseCase).importCostsFromCsv(csv);
+    }
+
+    // ── DELETE /api/v1/resource-costs/{id} ────────────────────────────────────
+
+    @Test
+    void deleteByFinanceManagerReturns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/resource-costs/{id}", "id-1")
+                        .with(csrf())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_FINANCE_MANAGER"))))
+                .andExpect(status().isNoContent());
+
+        verify(resourceCostUseCase).deleteCost("id-1");
+    }
+
+    @Test
+    void deleteByAnalystReturns403() throws Exception {
+        mockMvc.perform(delete("/api/v1/resource-costs/{id}", "id-1")
+                        .with(csrf())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST"))))
+                .andExpect(status().isForbidden());
     }
 }

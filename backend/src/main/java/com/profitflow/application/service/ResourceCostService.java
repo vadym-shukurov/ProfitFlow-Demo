@@ -1,6 +1,8 @@
 package com.profitflow.application.service;
 
 import com.profitflow.application.exception.InvalidInputException;
+import com.profitflow.application.exception.ResourceConflictException;
+import com.profitflow.application.exception.ResourceNotFoundException;
 import com.profitflow.application.port.in.ResourceCostUseCase;
 import com.profitflow.application.port.out.ResourceCostRepositoryPort;
 import com.profitflow.domain.Money;
@@ -14,6 +16,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -107,6 +110,33 @@ public class ResourceCostService implements ResourceCostUseCase {
         ResourceCost saved = resourceCosts.save(rc);
         metrics.recordCostCreated();
         return saved;
+    }
+
+    @Override
+    @AuditedOperation(action = "RESOURCE_COST_DELETED", entityType = "ResourceCost",
+                      entityIdSpEL = "id", critical = true)
+    @CacheEvict(value = CacheNames.RESOURCE_COSTS, allEntries = true)
+    public void deleteCost(String id) {
+        if (id == null || id.isBlank()) {
+            throw new InvalidInputException("Resource cost id must not be blank");
+        }
+        boolean exists;
+        try {
+            exists = resourceCosts.existsById(id);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidInputException("Invalid resource cost id: '" + id + "'", e);
+        }
+        if (!exists) {
+            throw new ResourceNotFoundException("Resource cost not found: " + id);
+        }
+        try {
+            resourceCosts.deleteById(id);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResourceConflictException(
+                    "Resource cost cannot be deleted because it is referenced by other records.", e);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidInputException("Invalid resource cost id: '" + id + "'", e);
+        }
     }
 
     /**
