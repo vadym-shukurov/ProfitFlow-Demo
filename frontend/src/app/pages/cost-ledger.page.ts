@@ -54,7 +54,7 @@ export class CostLedgerPage implements OnInit {
   }
 
   protected removeCost(id: string, label: string): void {
-    const ok = window.confirm(`Remove cost "${label}"? This cannot be undone.`);
+    const ok = globalThis.confirm(`Remove cost "${label}"? This cannot be undone.`);
     if (!ok) return;
     this.ledger.delete(id, label);
   }
