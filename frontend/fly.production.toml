@@ -4,10 +4,11 @@ primary_region = "ams"
 [build]
   dockerfile = "Dockerfile"
 
-# Override image ENTRYPOINT+CMD as a single argv vector so Fly does not merge duplicates
-# (see machine log: /docker-entrypoint.sh /docker-entrypoint.sh nginx ... nginx ...).
 [experimental]
-exec = ["/docker-entrypoint.sh", "nginx", "-g", "daemon off;"]
+# Pin ENTRYPOINT and CMD explicitly so Fly doesn't duplicate/merge them incorrectly.
+# (Observed crash loop: `/docker-entrypoint.sh /docker-entrypoint.sh nginx ...; nginx ...;` -> `nginx: invalid option: "nginx"`.)
+entrypoint = ["/docker-entrypoint.sh"]
+cmd = ["nginx", "-g", "daemon off;"]
 
 [http_service]
   internal_port = 8080
